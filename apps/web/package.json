@@ -1,5 +1,5 @@
 {
-  "name": "smart_itinerary",
+  "name": "@smart/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -20,7 +20,7 @@
     "@google/generative-ai": "^0.22.0",
     "@heroicons/react": "^2.2.0",
     "@supabase/ssr": "^0.4.0",
-    "@supabase/supabase-js": "^2.48.1",
+    "@supabase/supabase-js": "2.48.1",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.7.3",
     "lucide-react": "^0.482.0",
