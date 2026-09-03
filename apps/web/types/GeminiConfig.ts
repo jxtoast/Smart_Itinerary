@@ -1,8 +1,2 @@
-export interface GeminiConfig {
-    temperature?: number, //More creative & less deterministic
-    topP?: number, // Reduce nonsencial tokens being generate
-    topK?: number, // Reduce randomness
-    maxOutputTokens?: number, 
-    responseMimeType?: string,
-    response_schema?: Record<string, any>
-}
+// Re-export shim: domain types moved to packages/shared (T0.3).
+export * from "@smart/shared/src/types/GeminiConfig";

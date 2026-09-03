@@ -1,8 +1,2 @@
-export interface ItineraryDemographics {
-    id?: string | null;
-    currency?: string;
-    budgetMin: number;
-    budgetMax: number;
-    travelerType: string;
-    purpose: string;
-}
+// Re-export shim: domain types moved to packages/shared (T0.3).
+export * from "@smart/shared/src/types/ItineraryDemographics";

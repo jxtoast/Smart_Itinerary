@@ -1,9 +1,2 @@
-import { ItineraryActivity } from "./ItineraryActivity";
-
-export interface ItineraryDay {
-  id: string;
-  date: string;
-  location: string;
-  description: string;
-  activities: ItineraryActivity[];
-}
+// Re-export shim: domain types moved to packages/shared (T0.3).
+export * from "@smart/shared/src/types/ItineraryDay";

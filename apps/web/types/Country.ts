@@ -1,8 +1,2 @@
-export type Country = {
-    id: string;
-    country_code: string;
-    country_name: string;
-    airport: {
-      airport_code: string;
-    };
-};
+// Re-export shim: domain types moved to packages/shared (T0.3).
+export * from "@smart/shared/src/types/Country";

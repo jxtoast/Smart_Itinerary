@@ -1,9 +1,2 @@
-import { UserDemographics } from "./UserDemographics";
-
-export interface User {
-    id: string;
-    name: string | "null";
-    email?: string | null;
-    avatar_url: string | null;
-    userDemographics?: UserDemographics | null;
-}
+// Re-export shim: domain types moved to packages/shared (T0.3).
+export * from "@smart/shared/src/types/User";

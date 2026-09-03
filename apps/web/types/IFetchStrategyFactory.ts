@@ -1,6 +1,2 @@
-import { IBaseFetchStrategy } from '@/types/IBaseFetchStrategy';
-import { FactoryType } from '@/types/FactoryType';
-
-export interface IFetchStrategyFactory{
-    createStrategy(factoryType: FactoryType): IBaseFetchStrategy
-}
+// Re-export shim: domain types moved to packages/shared (T0.3).
+export * from "@smart/shared/src/types/IFetchStrategyFactory";
