@@ -2,20 +2,25 @@
 
 import { Footer } from "../components/Footer";
 import { Header } from "../components/Header";
-import { Geist, Geist_Mono } from "next/font/google";
+// import { Geist, Geist_Mono } from "next/font/google";
 import { ReactNode } from "react";
 import { AuthProvider } from "@/context/AuthContext";
-import "./globals.css";
+import "./globals.css"
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+// const geistSans = Geist({
+//   variable: "--font-geist-sans",
+//   subsets: ["latin"],
+// });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// const geistMono = Geist_Mono({
+//   variable: "--font-geist-mono",
+//   subsets: ["latin"],
+// });
+
+
+const fontConfig = {
+  variable: '--font-geist-sans',
+}
 
 interface RootLayoutProps {
   children: ReactNode;
