@@ -136,6 +136,32 @@ services:
     volumes:
       - mailpit-data:/data
 
+  # ------------------------------------------------------------ API gateway
+  # No DB/AMQP lines: the gateway holds no state (Service conventions).
+  # Upstream services register their own compose blocks in later tasks; until
+  # then the gateway reports them as "down" instead of failing (T1.1 design).
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    environment:
+      SERVICE_NAME: gateway
+      PORT: "8080"
+      LOG_LEVEL: info
+      TOKEN_VERIFY_MODE: dev
+      JWT_DEV_SECRET: dev-only-secret
+      AUTH_SERVICE_URL: http://auth-service:8081
+      ITINERARY_SERVICE_URL: http://itinerary-service:8082
+      GEMINI_SERVICE_URL: http://gemini-service:8083
+      TOOLS_SERVICE_URL: http://tools-service:8084
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
 volumes:
   auth-db-data:
   itinerary-db-data:
