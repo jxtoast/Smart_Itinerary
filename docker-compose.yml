@@ -162,6 +162,32 @@ services:
       timeout: 3s
       retries: 5
 
+  # --------------------------------------------------- auth-service (Phase 1)
+  # Diagram: "Authentication Service (User Profile)" — owns users +
+  # users_demographics in auth-db; the gateway proxies /api/auth/* here.
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    environment:
+      SERVICE_NAME: auth-service
+      PORT: "8081"
+      DATABASE_URL: postgres://smart:smart@auth-db:5432/smart_auth
+      AMQP_URL: amqp://guest:guest@rabbitmq:5672
+      LOG_LEVEL: info
+    ports:
+      - "8081:8081"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
 volumes:
   auth-db-data:
   itinerary-db-data:
