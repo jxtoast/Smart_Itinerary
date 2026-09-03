@@ -45,6 +45,9 @@ assignment — diagram fidelity is graded), while keeping the app working at eve
 6. **The app must keep working after every merged task** (strangler pattern — legacy
    paths stay until the page using them is switched).
 7. **Secrets never in the browser.** End state: no `NEXT_PUBLIC_` API keys in `apps/web`.
+8. **First-time-reader readability is a graded requirement.** The Code Standards
+   section below is a hard pre-requisite for every task — comments, clear naming,
+   service READMEs — not optional polish.
 
 ### 1.4 Key decisions (do not relitigate in tasks)
 - TypeScript everywhere; **Express** per service; **npm workspaces** (`@smart/*`), no nx/turbo.
@@ -86,17 +89,65 @@ docs/ARCHITECTURE.md          # diagram mirror + mapping + runbooks
 3. **Scope discipline** — touch only the files your task owns. Cross-service needs
    go through `packages/shared` contracts; if a contract is missing, extend
    `packages/shared` in your branch and flag it in your PR + the tracker Notes.
-4. **Definition of Done** (all must hold):
+4. **Code Standards** (see below) — mandatory, graded pre-requisite, not optional polish.
+5. **Definition of Done** (all must hold):
    - [ ] Acceptance criteria for the task verified (actually run it — curl, tests, build)
    - [ ] `npm run typecheck` passes in all workspaces; `npm run build --workspace @smart/web` passes
    - [ ] New env vars documented in the relevant `.env.example`
    - [ ] No secrets committed; no new `NEXT_PUBLIC_` server-side secrets
+   - [ ] **Code Standards check passed**: file-header comments, commented endpoints/queries,
+         and a first-time reader can trace the feature end-to-end (web → gateway →
+         service → DB/broker → response) just by reading the files along the path
+   - [ ] **Service README created/updated** (`services/<name>/README.md`) for Phase 1/2 tasks:
+         purpose, endpoints table, env vars table, how it maps to the diagram, run instructions
    - [ ] This tracker updated **in the same PR**: status → `done`, branch + PR linked,
          one-line "what actually happened" in Notes (deviations called out)
-5. **If blocked or scoped-down** — do NOT silently mark `done`. Set `blocked`, write
+6. **If blocked or scoped-down** — do NOT silently mark `done`. Set `blocked`, write
    the blocker in Notes, and finish every other part of the task that you can.
-6. **Check-in gates** — after each phase's last task merges, pause and report to the
+7. **Check-in gates** — after each phase's last task merges, pause and report to the
    user before starting the next phase (user wants phase-by-phase confirmation).
+
+**Status legend:** `todo` · `in-progress` · `blocked` · `done`
+
+---
+
+## Code Standards (mandatory pre-requisite for every task)
+
+**The audience is a reader seeing this codebase for the first time** — lecturers,
+graders and classmates. This is a module project: if a first-time reader cannot
+understand a file without asking the author, the file is not done.
+
+1. **File-header comment** — every new file opens with a short comment (2–5 lines):
+   what this file is, which diagram component it implements, and for services the
+   port + env vars it reads. Example style: `packages/shared/src/adapters/broker.ts`.
+2. **Why-comments, not what-comments** — explain the reasoning, constraints and
+   architecture links. Don't narrate obvious code (`// increment i` is noise).
+   Non-obvious logic (SQL joins, TTL/DLX flows, camelCase↔snake_case mapping,
+   auth checks) always gets a comment.
+3. **Self-explanatory names** — a function's name says what it returns/does
+   (`saveItineraryWithDays`), variables read like the domain (`itineraryId`, not
+   `x`). No single-letter names outside tiny lambdas.
+4. **Small and boring beats clever** — one job per function (aim ≤ ~40 lines),
+   guard clauses over deep nesting, straightforward loops over clever one-liners.
+5. **No magic values** — queue names, routing keys, TTLs, ports, cookie names live
+   as named constants (`packages/shared/src/events.ts`, adapters); no inline
+   `"amqp://..."` or `86400000` in service code.
+6. **SQL is commented** — repository files state in the header which tables they
+   own and why (matching `db/init/*.sql`); non-trivial queries get a one-line
+   intent comment above them.
+7. **Endpoints are documented in place** — every route handler gets a short
+   comment: purpose, who calls it, request/response shape. Validation uses the
+   zod DTOs from `@smart/shared` — never hand-rolled inline checks.
+8. **Honest errors** — error messages say what failed and where; errors are
+   logged with context fields (ids, routing keys) and never swallowed silently.
+9. **No dead code** — no commented-out blocks, no unused exports, no `any`
+   without a justifying comment (prefer `unknown` + narrowing).
+10. **Service README per service** (`services/<name>/README.md`) — purpose, a
+    small mermaid/ASCII flow of a representative request, endpoints table, env
+    vars table, diagram mapping, run instructions. Write it for the grader.
+11. **Self-review before `done`** — re-read your own diff as a stranger; if any
+    step of the feature's journey is unclear from code + comments alone, fix it
+    before opening the PR.
 
 **Status legend:** `todo` · `in-progress` · `blocked` · `done`
 
