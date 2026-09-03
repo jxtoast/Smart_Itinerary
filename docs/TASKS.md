@@ -100,6 +100,55 @@ main  ←  microservices-develop  ←  task/<id>-<slug> branches
 
 ---
 
+## Service conventions (Phase 1 — applies to every service task)
+
+All Phase 1 agents branch from `microservices-develop` and follow these exactly,
+so parallel branches land merge-clean:
+
+1. **Port + env**: service listens on the port from §1.4; `SERVICE_NAME` and
+   `PORT` env vars; env-var NAMES exactly as in `packages/shared/.env.example`.
+2. **docker-compose.yml**: append your service block at the END of the
+   `services:` section using this template (build context is repo root):
+   ```yaml
+     <service-name>:
+       build:
+         context: .
+         dockerfile: services/<service-name>/Dockerfile
+       environment:
+         SERVICE_NAME: <service-name>
+         PORT: "<port>"
+         DATABASE_URL: postgres://smart:smart@<db-host>:5432/<db-name>
+         AMQP_URL: amqp://guest:guest@rabbitmq:5672
+         LOG_LEVEL: info
+       ports:
+         - "<port>:<port>"
+       depends_on:
+         <db-host>:
+           condition: service_healthy
+         rabbitmq:
+           condition: service_healthy
+       healthcheck:
+         test: ["CMD", "wget", "-qO-", "http://localhost:<port>/healthz"]
+         interval: 10s
+         timeout: 3s
+         retries: 5
+   ```
+   (`<db-host>`/`<db-name>` per service: auth-db/smart_auth · itinerary-db/smart_itinerary · gemini-db/smart_gemini · tools-db/smart_tools. gateway + email-service drop the DB lines; email-service keeps AMQP only.)
+3. **No changes to `packages/shared`** — if a contract is missing, extend your own
+   service only if trivially local; otherwise flag it in your tracker Notes.
+4. **No merging into `microservices-develop` and no starting other tasks** — push
+   your `task/*` branch and stop. The lead workspace integrates branch-by-branch
+   with verification between each.
+5. **Offline verification honesty**: Postgres/RabbitMQ are not runnable in agent
+   workspaces (no Docker). Verify locally what is real (typecheck, service boots
+   via `tsx`, `/healthz`, zod 400s, SQL reviewed against `db/init/*.sql`), and
+   note in your tracker row that runtime verification happens when the user runs
+   `docker compose up --build`. T1.5 additionally ships
+   `services/email-service/scripts/publish-test-event.ts`; T1.6 verifies PDF
+   generation against a fixture itinerary payload (full E2E proven at integration).
+
+---
+
 ## Agent Protocol
 
 **Every agent, every branch, no exceptions:**
