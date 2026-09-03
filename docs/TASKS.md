@@ -79,22 +79,22 @@ docs/ARCHITECTURE.md          # diagram mirror + mapping + runbooks
 ## Branching model
 
 ```
-main  ←  replatform/develop  ←  task/<id>-<slug> branches
+main  ←  microservices-develop  ←  task/<id>-<slug> branches
 ```
 
-- **`replatform/develop`** is the integration branch for the entire re-platform.
+- **`microservices-develop`** is the integration branch for the entire re-platform.
   Every task branch merges into it; it merges into `main` when the re-platform
   is complete (user's call per phase). Branched from `main` in Phase 0, so it
   carries the monolith (still working) plus all re-platform commits.
 - The pre-existing team `develop` branch is **not** used by this effort — leave it
   untouched.
-- Task branches: `task/<id>-<slug>`, based on the latest `replatform/develop`
+- Task branches: `task/<id>-<slug>`, based on the latest `microservices-develop`
   (or on a dependency task's branch when that hasn't merged yet — note it in the
   tracker Notes).
 - **Parallel agents onboard automatically**: every branch cut from
-  `replatform/develop` carries this file (PRD, protocol, code standards, board).
+  `microservices-develop` carries this file (PRD, protocol, code standards, board).
   Because several agents hold copies at once, always merge/rebase the latest
-  `replatform/develop` into your branch **before claiming a task**, and edit
+  `microservices-develop` into your branch **before claiming a task**, and edit
   **only your own task's row** — this keeps tracker merge conflicts rare and
   mechanical (adjacent rows can conflict; resolve by keeping both `done` rows).
 
@@ -108,7 +108,7 @@ main  ←  replatform/develop  ←  task/<id>-<slug> branches
    are all `done`, then set its row to `in-progress` with your branch name
    (commit this tracker change on your branch).
 2. **Branch naming** — `task/<id>-<slug>`, e.g. `task/t1.2-auth-service`.
-   Base your branch on the latest `replatform/develop` (or the branch of a
+   Base your branch on the latest `microservices-develop` (or the branch of a
    dependency task if that hasn't merged — note it in your PR).
 3. **Scope discipline** — touch only the files your task owns. Cross-service needs
    go through `packages/shared` contracts; if a contract is missing, extend
@@ -183,7 +183,7 @@ understand a file without asking the author, the file is not done.
 
 | ID | Task | Depends | Branch | Status | Notes |
 |---|---|---|---|---|---|
-| T0.1 | Monorepo scaffold: npm workspaces, app → `apps/web`, service skeletons, workflows | — | `replatform/develop` | **done** | Scaffold applied directly on the integration branch; build+typecheck green; supabase-js pinned 2.48.1 via root override |
+| T0.1 | Monorepo scaffold: npm workspaces, app → `apps/web`, service skeletons, workflows | — | `microservices-develop` | **done** | Scaffold applied directly on the integration branch; build+typecheck green; supabase-js pinned 2.48.1 via root override |
 | T0.2 | docker-compose + database-per-service DDL (`db/init/*.sql`) | T0.1 | `task/t0.2-compose-infra` | **done** | Infra only: 4× postgres (DDL reconstructed from service code + demo seeds incl. mock-auth user), rabbitmq, minio+bucket init, mailpit. YAML validated; **runtime `docker compose up` pending — Docker not available in agent workspace, run on your machine**. App containers deliberately land with their Phase 1/2 tasks |
 | T0.3 | `packages/shared`: move types, zod DTOs, event schemas, adapters (db/storage/mailer/broker/jwt/http) | T0.1 | `task/t0.3-shared-contracts` | **done** | Types moved (web keeps one-line shims so legacy pages keep working); zod DTOs for auth/itineraries/gemini/tools; events + TTL/DLX reminder topology; 6 adapters; smoke test (`npm run smoke -w @smart/shared`) ALL GREEN; all workspaces typecheck + web build green. Deviation: `data/*Schema.ts` stays in web for now (imports Gemini SDK `SchemaType` — vendor-specific; moves to gemini-service in T1.4, not shared) |
 
