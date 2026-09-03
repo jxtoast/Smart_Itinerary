@@ -136,6 +136,30 @@ services:
     volumes:
       - mailpit-data:/data
 
+  # ------------------------------------------------- application: itinerary-service
+  itinerary-service:
+    build:
+      context: .
+      dockerfile: services/itinerary-service/Dockerfile
+    environment:
+      SERVICE_NAME: itinerary-service
+      PORT: "8082"
+      DATABASE_URL: postgres://smart:smart@itinerary-db:5432/smart_itinerary
+      AMQP_URL: amqp://guest:guest@rabbitmq:5672
+      LOG_LEVEL: info
+    ports:
+      - "8082:8082"
+    depends_on:
+      itinerary-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
 volumes:
   auth-db-data:
   itinerary-db-data:
