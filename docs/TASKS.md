@@ -244,7 +244,7 @@ understand a file without asking the author, the file is not done.
 |---|---|---|---|---|---|
 | T1.1 | **gateway** 8080: route table `/api/{auth,itineraries,gemini,tools}/*`, JWT verify (jose+JWKS, cookie+Bearer), rate-limit, helmet, dev-token route (mock only), health aggregation | T0.3 | | todo | |
 | T1.2 | **auth-service** 8081: port `UserService` → SQL repos; `GET /me` (upsert from claims), `GET/PATCH /profile`, `GET/PUT /demographics` | T0.3 | | todo | |
-| T1.3 | **itinerary-service** 8082: port `ItineraryService` (save/update/get/delete incl. days/activities) → SQL repos; publish `itinerary.created` | T0.3 | | todo | |
+| T1.3 | **itinerary-service** 8082: port `ItineraryService` (save/update/get/delete incl. days/activities) → SQL repos; publish `itinerary.created` | T0.3 | `task/t1.3-itinerary-service` | **in-progress** | |
 | T1.4 | **gemini-service** 8083: move `GeminiService`, `GeminiConfigBuilder`, hotel/flight search, fetch strategies, `ItineraryPlannerFacade`; endpoints `/generate-itinerary`, `/generate-weather`, `/plan`, `/hotels/search`, `/flights/search`, `/reference/*`; keys server-side only; audit rows in own DB | T0.3 | | todo | |
 | T1.5 | **email-service** 8085: consumers for `itinerary.created` / `itinerary.shared` / `group.invited`; reminders via RabbitMQ TTL+DLX (`reminders.waiting` → `reminders.due`); SMTP mailer; HTML templates | T0.3 | | todo | |
 | T1.6 | **tools-service** 8084: groups CRUD + email-invite token + join; shares (`POST /shares` → record + token + `itinerary.shared`); `GET /export/itinerary/:id/pdf` → internal fetch → pdfkit → MinIO → presigned URL | T0.3 | | todo | |
