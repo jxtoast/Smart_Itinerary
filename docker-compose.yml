@@ -1,0 +1,146 @@
+# Smart Itinerary — local infrastructure stack (T0.2).
+#
+# Dev-only credentials, never exposed publicly. When migrating to AWS, each
+# service here maps to a managed equivalent (see docs/TASKS.md §1.2):
+#   postgres  -> Amazon RDS (one database per service)
+#   rabbitmq  -> Amazon MQ (RabbitMQ) or SQS
+#   minio     -> Amazon S3 (same API; swap S3_ENDPOINT env var)
+#   mailpit   -> Amazon SES (SMTP interface — same mailer adapter)
+#
+# Application containers (gateway + 5 services + web) are added by their own
+# Phase 1 / Phase 2 tasks so each lands tested with the code it ships.
+
+name: smart-itinerary
+
+services:
+  # ---------------------------------------------------------------- databases
+  auth-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: smart
+      POSTGRES_PASSWORD: smart
+      POSTGRES_DB: smart_auth
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./db/init/auth-service.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+      - auth-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smart -d smart_auth"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  itinerary-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: smart
+      POSTGRES_PASSWORD: smart
+      POSTGRES_DB: smart_itinerary
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./db/init/itinerary-service.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+      - itinerary-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smart -d smart_itinerary"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  gemini-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: smart
+      POSTGRES_PASSWORD: smart
+      POSTGRES_DB: smart_gemini
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./db/init/gemini-service.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+      - gemini-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smart -d smart_gemini"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  tools-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: smart
+      POSTGRES_PASSWORD: smart
+      POSTGRES_DB: smart_tools
+    ports:
+      - "5436:5432"
+    volumes:
+      - ./db/init/tools-service.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+      - tools-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smart -d smart_tools"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # ------------------------------------------------------------- message broker
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI (guest/guest)
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # --------------------------------------------------------------- file storage
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: smart
+      MINIO_ROOT_PASSWORD: smart-local-dev
+    ports:
+      - "9000:9000"    # S3 API
+      - "9001:9001"    # Console UI
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # One-shot bucket creation for the S3-compatible API.
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 smart smart-local-dev &&
+        mc mb --ignore-existing local/si-files &&
+        echo 'bucket si-files ready'
+      "
+
+  # --------------------------------------------------------------------- email
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "1025:1025"    # SMTP
+      - "8025:8025"    # Web UI
+    volumes:
+      - mailpit-data:/data
+
+volumes:
+  auth-db-data:
+  itinerary-db-data:
+  gemini-db-data:
+  tools-db-data:
+  rabbitmq-data:
+  minio-data:
+  mailpit-data:

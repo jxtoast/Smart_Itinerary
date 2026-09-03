@@ -109,7 +109,7 @@ docs/ARCHITECTURE.md          # diagram mirror + mapping + runbooks
 | ID | Task | Depends | Branch | Status | Notes |
 |---|---|---|---|---|---|
 | T0.1 | Monorepo scaffold: npm workspaces, app → `apps/web`, service skeletons, workflows | — | (this branch) | **done** | Scaffold applied uncommitted on `terry12321/itinerary-architecture-upgrade`; build+typecheck green; supabase-js pinned 2.48.1 via root override |
-| T0.2 | docker-compose + database-per-service DDL (`db/init/*.sql`) | T0.1 | | todo | |
+| T0.2 | docker-compose + database-per-service DDL (`db/init/*.sql`) | T0.1 | `task/t0.2-compose-infra` | **done** | Infra only: 4× postgres (DDL reconstructed from service code + demo seeds incl. mock-auth user), rabbitmq, minio+bucket init, mailpit. YAML validated; **runtime `docker compose up` pending — Docker not available in agent workspace, run on your machine**. App containers deliberately land with their Phase 1/2 tasks |
 | T0.3 | `packages/shared`: move types, zod DTOs, event schemas, adapters (db/storage/mailer/broker/jwt/http) | T0.1 | | todo | Parallel-safe with T0.2 |
 
 **📍 Check-in 1** after Phase 0: app runs from `apps/web`, infra up, contracts published.
