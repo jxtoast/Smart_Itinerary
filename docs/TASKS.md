@@ -242,7 +242,7 @@ understand a file without asking the author, the file is not done.
 
 | ID | Task | Depends | Branch | Status | Notes |
 |---|---|---|---|---|---|
-| T1.1 | **gateway** 8080: route table `/api/{auth,itineraries,gemini,tools}/*`, JWT verify (jose+JWKS, cookie+Bearer), rate-limit, helmet, dev-token route (mock only), health aggregation | T0.3 | | todo | |
+| T1.1 | **gateway** 8080: route table `/api/{auth,itineraries,gemini,tools}/*`, JWT verify (jose+JWKS, cookie+Bearer), rate-limit, helmet, dev-token route (mock only), health aggregation | T0.3 | `task/t1.1-gateway` | **in-progress** | |
 | T1.2 | **auth-service** 8081: port `UserService` → SQL repos; `GET /me` (upsert from claims), `GET/PATCH /profile`, `GET/PUT /demographics` | T0.3 | | todo | |
 | T1.3 | **itinerary-service** 8082: port `ItineraryService` (save/update/get/delete incl. days/activities) → SQL repos; publish `itinerary.created` | T0.3 | | todo | |
 | T1.4 | **gemini-service** 8083: move `GeminiService`, `GeminiConfigBuilder`, hotel/flight search, fetch strategies, `ItineraryPlannerFacade`; endpoints `/generate-itinerary`, `/generate-weather`, `/plan`, `/hotels/search`, `/flights/search`, `/reference/*`; keys server-side only; audit rows in own DB | T0.3 | | todo | |
