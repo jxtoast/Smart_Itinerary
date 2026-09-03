@@ -1,6 +1,2 @@
-export interface WeatherForecast {
-    date: string;
-    location: string;
-    temperature_celsius: number;
-    condition: string;
-    }
+// Re-export shim: domain types moved to packages/shared (T0.3).
+export * from "@smart/shared/src/types/WeatherForecast";

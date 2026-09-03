@@ -1,8 +1,2 @@
-export interface ItineraryActivity {
-    id: string;
-    name: string;
-    details: string;
-    timing: string;
-    estimatedCost: number;
-    imageUrl: string;
-  }
+// Re-export shim: domain types moved to packages/shared (T0.3).
+export * from "@smart/shared/src/types/ItineraryActivity";

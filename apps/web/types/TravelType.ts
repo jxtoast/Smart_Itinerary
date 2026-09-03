@@ -1,6 +1,2 @@
-export type TravelType = {
-    id: string;
-    type_name: string;
-    type_code: string;
-    number_of_people: string;
-}
+// Re-export shim: domain types moved to packages/shared (T0.3).
+export * from "@smart/shared/src/types/TravelType";
