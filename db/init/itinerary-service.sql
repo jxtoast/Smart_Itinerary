@@ -77,3 +77,8 @@ INSERT INTO itinerary_activity (itinerary_day_id, name, details, estimated_cost,
   (1, 'Shibuya Crossing', 'Iconic scramble crossing and Hachiko statue.', 0, 'https://example.com/shibuya.jpg', '09:00'),
   (1, 'teamLab Planets', 'Immersive digital art museum.', 25, 'https://example.com/teamlab.jpg', '14:00'),
   (2, 'Senso-ji Temple', 'Oldest temple in Tokyo, Nakamise shopping street.', 0, 'https://example.com/sensoji.jpg', '10:00');
+
+-- The seed above inserts explicit itinerary_day ids, so the bigserial sequence
+-- must be advanced to match — otherwise the first service-generated day id
+-- collides with the seeded rows (duplicate key on itinerary_day_pkey).
+SELECT setval(pg_get_serial_sequence('itinerary_day', 'id'), (SELECT MAX(id) FROM itinerary_day));
