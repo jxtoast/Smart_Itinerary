@@ -91,6 +91,12 @@ main  ←  replatform/develop  ←  task/<id>-<slug> branches
 - Task branches: `task/<id>-<slug>`, based on the latest `replatform/develop`
   (or on a dependency task's branch when that hasn't merged yet — note it in the
   tracker Notes).
+- **Parallel agents onboard automatically**: every branch cut from
+  `replatform/develop` carries this file (PRD, protocol, code standards, board).
+  Because several agents hold copies at once, always merge/rebase the latest
+  `replatform/develop` into your branch **before claiming a task**, and edit
+  **only your own task's row** — this keeps tracker merge conflicts rare and
+  mechanical (adjacent rows can conflict; resolve by keeping both `done` rows).
 
 ---
 
