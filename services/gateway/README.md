@@ -49,7 +49,7 @@ JWT, `502 {"error":"gemini-service is down"}` for an unreachable upstream.
 | Method | Path | Purpose | Notes |
 |---|---|---|---|
 | GET | `/healthz` | Liveness + upstream health aggregation | Always HTTP 200; body says `ok` (all upstreams up) or `degraded`, with per-service detail. Public, not rate-limited. |
-| POST | `/api/auth/dev-token` | Mint a mock-auth JWT (also sets the `si_session` cookie) | **Only when `TOKEN_VERIFY_MODE=dev`** — answers 404 under cognito mode. Body (all optional): `{"sub","email","name"}`; `sub` defaults to `dev-user`. Returns `201 {"token","claims"}`. |
+| POST | `/api/auth/dev-token` | Mint a mock-auth JWT (also sets the `si_session` cookie) | **Only when `TOKEN_VERIFY_MODE=dev`** — answers 404 under cognito mode. Body (all optional): `{"sub","email","name"}`; `sub` defaults to the seeded mock-auth user `1b9472e1-a85e-43bf-9898-6f44e2b20809` (must be a UUID — auth-service stores it in `users(id uuid)`). Returns `201 {"token","claims"}`. |
 
 Everything else under `/api/*` is proxied:
 

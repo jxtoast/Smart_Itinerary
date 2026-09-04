@@ -118,10 +118,13 @@ Response: `201 {"token":"eyJ...","claims":{...}}`. Three things to know:
 - **You don't need a token to call this endpoint** — it's the endpoint that
   *gives* you one. It's public by design so automated tests (Cypress) and
   quick curl checks work without Cognito.
-- `sub` is the user id the rest of the system will see. Some routes store it as
-  a database UUID, so pass a UUID like the one above (omitting the body gives
-  you `sub: "dev-user"`, which is fine for auth routes but rejected by
-  itinerary routes — now you know why).
+- `sub` is the user id the rest of the system will see, and it **must be a
+  UUID** — auth-service upserts it into a `uuid` database column, so a plain
+  word like `"dev-user"` fails with a 500 (reproduced and fixed: the default is
+  now the seeded demo user). Omitting the body entirely is the easy path: it
+  mints a token for the seeded mock-auth user `1b9472e1-a85e-43bf-9898-6f44e2b20809`
+  ("Test User" from `db/init/auth-service.sql`), so `GET /api/auth/me` returns a
+  ready-made profile.
 - It only exists when the gateway runs with `TOKEN_VERIFY_MODE=dev` (the
   docker-compose default). In production mode it answers 404.
 
@@ -222,7 +225,7 @@ docker compose down -v                # ⚠️ also DELETE the database volumes 
 | `{"error":"No route for GET /x"}` (JSON) | You reached a real service but used a path it doesn't serve — check that service's README endpoints table |
 | `Cannot GET /x` (HTML) | Same idea from Express's default handler — also a wrong path |
 | `401 {"error":...}` on a protected route | Missing/expired token — mint a fresh one (§4.2) |
-| `400 ... "Invalid uuid"` | You used `dev-user` as the user id where a UUID is required — mint your token with a UUID `sub` (§4.2) |
+| `400 ... "Invalid uuid"` | Itinerary routes take the user id from the URL and require a UUID — use the `sub` value from your token (the default dev token's `sub` is the seeded demo user `1b9472e1-a85e-43bf-9898-6f44e2b20809`) |
 | Code changes don't appear | Images are snapshots: re-run `docker compose up --build -d` (add the service name to rebuild just one) |
 
 ## 9. Where to read next

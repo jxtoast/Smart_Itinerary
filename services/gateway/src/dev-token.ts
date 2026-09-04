@@ -20,9 +20,12 @@ import { asyncRoute } from "./async-route";
 /** Same cookie the shared JWT adapter reads — kept in sync by convention. */
 const SI_SESSION_COOKIE = "si_session";
 const DEV_TOKEN_TTL_SECONDS = 12 * 60 * 60; // 12h, matching signDevToken's default
-const DEFAULT_DEV_SUB = "dev-user";
 
-// sub defaults to a stable dev identity so Cypress gets a deterministic user.
+// sub defaults to the mock-auth user seeded in db/init/auth-service.sql. It
+// MUST be a UUID: auth-service upserts it into users(id uuid), so a plain
+// word like "dev-user" would fail in Postgres (invalid input syntax, 500).
+// Keeping it stable also gives Cypress a deterministic user to log in as.
+const DEFAULT_DEV_SUB = "1b9472e1-a85e-43bf-9898-6f44e2b20809";
 const DevTokenRequestSchema = AuthClaimsSchema.partial();
 
 export const devTokenHandler: RequestHandler = asyncRoute(
