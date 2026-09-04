@@ -183,7 +183,48 @@ The frontend calls the gateway through a same-origin rewrite (`/api/:path*` →
 pages still talk to the old monolith paths while the migration is in progress
 (strangler pattern — see `docs/TASKS.md` §1.3).
 
-## 5. The web UIs (what each container gives you)
+## 5. How the database seeds itself (and how users are created)
+
+**You never create users or run SQL by hand.** Two mechanisms do the work:
+
+**1 — Databases seed themselves on first boot.** Each database container mounts
+its DDL file into the official Postgres image's init directory:
+
+```yaml
+auth-db:
+  volumes:
+    - ./db/init/auth-service.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    - auth-db-data:/var/lib/postgresql/data
+```
+
+The official `postgres` image runs everything in `/docker-entrypoint-initdb.d/`
+**once, when its data directory is empty** — i.e., the first `docker compose up`
+after the volume is created. The script creates the tables *and* inserts seed
+data, including the mock-auth demo user `1b9472e1-a85e-43bf-9898-6f44e2b20809`
+("Test User", with demographics already filled in). That's the user the default
+dev token (§4.2) maps to — your first `docker compose up` already seeded it,
+and the `auth-db-data` volume keeps it.
+
+> **Gotcha:** init scripts run only on an **empty** volume. If `db/init/*.sql`
+> changes in a later task, an existing database volume keeps its old schema —
+> do a full reset (`docker compose down -v`, then `up`) to re-seed.
+
+**2 — Users are created lazily from tokens.** There is no signup endpoint.
+The first time `GET /api/auth/me` sees a token whose `sub` is a UUID the
+database hasn't stored, auth-service upserts a profile row from the token
+claims (name, email). So any UUID you mint a dev token for becomes a real user
+on first contact — which is also why a non-UUID `sub` fails (§4.2). The seeded
+user simply pre-exists so the default dev token has a ready-made profile, and
+Cypress can log in deterministically. In Phase 2, Cognito replaces dev-token,
+and real Google logins go through the same upsert path.
+
+| You want to… | Do this |
+|---|---|
+| Check the seed is really there | `docker compose exec auth-db psql -U smart -d smart_auth -c "SELECT id, name, email FROM users;"` |
+| Look at saved itineraries | `docker compose exec itinerary-db psql -U smart -d smart_itinerary -c "SELECT id, destination FROM itineraries;"` |
+| Total reset (wipe ALL data) | `docker compose down -v` ⚠️ then `docker compose up --build -d` — volumes deleted, next boot re-runs DDL + seeds |
+
+## 6. The web UIs (what each container gives you)
 
 | URL | What | Why it's useful |
 |---|---|---|
@@ -191,7 +232,7 @@ pages still talk to the old monolith paths while the migration is in progress
 | `http://localhost:8025` | **Mailpit** — fake inbox | Every email the system "sends" lands here instead of real inboxes. Free, instant, no spam risk |
 | `http://localhost:9001` | **MinIO console** (login `smart` / `smart-local-dev`) | S3-compatible file storage; exported itinerary PDFs land in the `si-files` bucket |
 
-## 6. Ports cheat-sheet
+## 7. Ports cheat-sheet
 
 | Port | Thing |
 |---|---|
@@ -203,7 +244,7 @@ pages still talk to the old monolith paths while the migration is in progress
 | 1025 / 8025 | Mailpit SMTP / web inbox |
 | 9000 / 9001 | MinIO S3 API / console |
 
-## 7. Useful commands
+## 8. Useful commands
 
 ```bash
 docker compose ps                     # what's running, healthy or not
@@ -215,7 +256,7 @@ docker compose down                   # stop + remove containers (data volumes s
 docker compose down -v                # ⚠️ also DELETE the database volumes — full reset
 ```
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Meaning / fix |
 |---|---|
@@ -228,7 +269,7 @@ docker compose down -v                # ⚠️ also DELETE the database volumes 
 | `400 ... "Invalid uuid"` | Itinerary routes take the user id from the URL and require a UUID — use the `sub` value from your token (the default dev token's `sub` is the seeded demo user `1b9472e1-a85e-43bf-9898-6f44e2b20809`) |
 | Code changes don't appear | Images are snapshots: re-run `docker compose up --build -d` (add the service name to rebuild just one) |
 
-## 9. Where to read next
+## 10. Where to read next
 
 - `docs/TASKS.md` — the single source of truth: PRD, architecture table, task board and current status
 - `services/<name>/README.md` — each service's endpoints, env vars and a request walkthrough
