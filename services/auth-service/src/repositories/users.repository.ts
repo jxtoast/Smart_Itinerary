@@ -44,18 +44,22 @@ export class UsersRepository {
 
   /**
    * First login creates the row; every later login refreshes the identity
-   * fields Cognito owns (name/email). COALESCE keeps the stored value when a
-   * claim is absent (dev tokens may omit email/name). avatar_url is NOT
-   * touched: it is app-managed via PATCH /profile, not a token claim.
+   * fields Cognito owns (name/email). The two COALESCEs do DIFFERENT jobs:
+   * - VALUES side: satisfies the NOT NULL name column when a brand-new user
+   *   logs in via a token with no name claim (dev tokens may omit it).
+   * - DO UPDATE side: binds $2/$3 RAW (not EXCLUDED, which is already
+   *   coalesced and could never be NULL), so an absent claim keeps the
+   *   stored value instead of clobbering it. avatar_url is NOT touched:
+   *   it is app-managed via PATCH /profile, not a token claim.
    */
   async upsertFromClaims(claims: AuthClaims): Promise<UsersRow> {
     const row = await queryOne<UsersRow>(
       this.pool,
       `INSERT INTO users (id, name, email)
-       VALUES ($1, COALESCE($2, 'null'), $3)
+       VALUES ($1, COALESCE($2, 'New User'), $3)
        ON CONFLICT (id) DO UPDATE
-         SET name  = COALESCE(EXCLUDED.name, users.name),
-             email = COALESCE(EXCLUDED.email, users.email)
+         SET name  = COALESCE($2, users.name),
+             email = COALESCE($3, users.email)
        RETURNING id, name, email, avatar_url`,
       [
         claims.sub,
