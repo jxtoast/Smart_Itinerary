@@ -114,7 +114,7 @@ app.use(async (req, res, next) => {
 // Gateway-local route first so the /api/auth proxy doesn't swallow it.
 app.post("/api/auth/dev-token", devTokenHandler);
 
-// Forward everything else to the route table (prefix stripped, auth headers kept).
+// Forward everything else to the route table (path as-is, auth headers kept).
 for (const route of UPSTREAM_ROUTES) {
   app.use(route.publicPrefix, createProxyHandler(route));
 }

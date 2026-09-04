@@ -21,9 +21,13 @@ export interface UpstreamRoute {
 }
 
 /**
- * `/api/auth/dev-token` is served by the gateway itself (see dev-token.ts),
- * everything else under these prefixes is forwarded with the prefix stripped,
- * so a call to `/api/gemini/plan` hits gemini-service at `/plan`.
+ * `/api/auth/dev-token` is served by the gateway itself (see dev-token.ts).
+ * Everything else under these prefixes is forwarded TRANSPARENTLY: the full
+ * public path reaches the service unchanged, so each service mounts its
+ * routers under the same prefix the client used (auth-service mounts
+ * `/api/auth/*`, itinerary-service `/api/itineraries/*` — see their app.ts).
+ * This is the integration contract: a transparent reverse proxy (nginx/ALB
+ * style) rather than a rewriting one — services own their path namespace.
  */
 export const UPSTREAM_ROUTES: UpstreamRoute[] = [
   { publicPrefix: "/api/auth", serviceName: "auth-service", urlEnvVar: "AUTH_SERVICE_URL" },
@@ -44,8 +48,11 @@ export function resolveUpstreamUrl(route: UpstreamRoute): string | null {
   return process.env[route.urlEnvVar] || null;
 }
 
-/** Strip the public prefix so upstreams own their own routes (`/me`, `/plan`, …). */
-export function upstreamPath(route: UpstreamRoute, requestPath: string): string {
-  const suffix = requestPath.slice(route.publicPrefix.length);
-  return suffix === "" ? "/" : suffix;
+/**
+ * Path forwarded upstream for a request. The gateway is transparent: the
+ * client's path IS the service's path (query string included), so
+ * `GET /api/itineraries/user/u1` hits itinerary-service at the same path.
+ */
+export function upstreamForwardPath(requestPath: string): string {
+  return requestPath;
 }

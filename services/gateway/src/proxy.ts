@@ -23,7 +23,7 @@ import { createLogger, ApiError } from "@smart/shared";
 import {
   UpstreamRoute,
   resolveUpstreamUrl,
-  upstreamPath,
+  upstreamForwardPath,
 } from "./upstreams";
 
 const logger = createLogger("gateway-proxy");
@@ -91,8 +91,10 @@ export function createProxyHandler(route: UpstreamRoute): RequestHandler {
         );
       }
 
-      // Rewrite the path: /api/gemini/plan?x=1 -> <baseUrl>/plan?x=1
-      const target = new URL(upstreamPath(route, req.originalUrl), baseUrl);
+      // Transparent forward: the client's path IS the service's path (see
+      // upstreams.ts — services mount routers under the same /api/<area>
+      // prefix). originalUrl keeps the query string intact.
+      const target = new URL(upstreamForwardPath(req.originalUrl), baseUrl);
 
       const requestHeaders = new Headers();
       for (const [name, value] of Object.entries(req.headers)) {

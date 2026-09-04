@@ -8,8 +8,10 @@ diagram: ECS runs it with desired count 2 to reproduce the two instances.
 Responsibilities:
 
 1. **Route forwarding** — maps public `/api/<area>/*` paths to the service
-   behind them (route table in `src/upstreams.ts`), stripping the area prefix
-   so each service owns its own paths (`/api/gemini/plan` → gemini-service `/plan`).
+   behind them (route table in `src/upstreams.ts`). Forwarding is **transparent**:
+   the path the client sent is the path the service receives
+   (`/api/gemini/plan` → gemini-service `/api/gemini/plan`), so each service
+   mounts its routers under the same public prefix.
 2. **JWT verification** — every `/api/*` call must carry a valid token, in the
    `Authorization: Bearer <token>` header **or** the `si_session` session
    cookie (web flow). Verified with `@smart/shared`'s `createTokenVerifier` +
@@ -32,8 +34,8 @@ sequenceDiagram
     participant S as gemini-service :8083
     C->>G: POST /api/gemini/plan<br/>Authorization: Bearer <jwt>
     G->>G: rate-limit → helmet → JWT verify (claims)
-    Note over G: route table: /api/gemini → GEMINI_SERVICE_URL<br/>prefix stripped, body forwarded byte-for-byte
-    G->>S: POST /plan (same headers, same body)
+    Note over G: route table: /api/gemini → GEMINI_SERVICE_URL<br/>path forwarded as-is, body forwarded byte-for-byte
+    G->>S: POST /api/gemini/plan (same path, same headers, same body)
     S-->>G: 200 itinerary JSON
     G-->>C: 200 (status + headers + body relayed)
 ```
@@ -57,6 +59,9 @@ Everything else under `/api/*` is proxied:
 | `/api/itineraries/*` | itinerary-service | 8082 | `ITINERARY_SERVICE_URL` |
 | `/api/gemini/*` | gemini-service | 8083 | `GEMINI_SERVICE_URL` |
 | `/api/tools/*` | tools-service | 8084 | `TOOLS_SERVICE_URL` |
+
+Forwarding never rewrites the path (only hop-by-hop headers are dropped), so a
+service's endpoints table is also its public API surface through the gateway.
 
 ## Environment variables
 
