@@ -10,6 +10,7 @@
 import express, { Express } from "express";
 import { createLogger, errorHandler } from "@smart/shared";
 import { requestLogger } from "./http/request-logger";
+import { cookieMiddleware } from "./cookies";
 import { AuthRouteDeps } from "./deps";
 import { createMeRouter } from "./routes/me.routes";
 import { createProfileRouter } from "./routes/profile.routes";
@@ -26,6 +27,9 @@ export function buildApp(deps: AuthAppDeps): Express {
   app.use(requestLogger(logger));
   // Malformed JSON bodies throw with status 400 and reach the error handler.
   app.use(express.json());
+  // Populate req.cookies so the shared JWT adapter can read the si_session
+  // cookie (the browser never sends Bearer headers — cookie-auth only).
+  app.use(cookieMiddleware);
 
   // Liveness probe used by docker-compose (and later ECS) healthchecks —
   // deliberately database-free so a DB outage shows up in the real routes,
