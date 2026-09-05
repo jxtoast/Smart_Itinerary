@@ -73,6 +73,62 @@ docker compose ps                       # wait until every service shows "health
 - **Node.js 20+** — only for running the web app (`npm run dev:web`) and tests; the backend services run entirely in Docker
 - Free ports: 3000, 8080–8085, 5433–5436, 5672, 8025, 9000, 9001, 15672
 
+### 3.1 Optional: free AI keys — the root `.env`
+
+The stack runs fully with **zero keys**: AI planning answers an honest
+`503 "not configured"` (so you always know why a feature is dark), and
+everything else — auth, itineraries, groups, sharing, PDF export, email —
+works normally. To switch the AI features on:
+
+1. Get a **free-tier** key at [Google AI Studio](https://aistudio.google.com/apikey).
+2. Create a file named `.env` **in the repository root** (same folder as
+   `docker-compose.yml`) — Compose loads it automatically, no flags:
+
+   ```bash
+   # <repo-root>/.env   (gitignored — never commit it)
+   GEMINI_API_KEY=<your AI Studio key>
+   AMADEUS_API_KEY=<optional — Amadeus *test-env* key, for flight search>
+   ```
+
+3. Recreate the consumer so it picks the variable up:
+
+   ```bash
+   docker compose up -d gemini-service
+   ```
+
+**Why the root `.env` and not `docker-compose.yml`?** Keys must never be
+committed (`.env` is gitignored) and never reach the browser (PRD §1.3). They
+live in the *container's* environment only; the browser talks to our gateway,
+and the gateway's services call Gemini/Amadeus server-to-server. That is also
+why this costs $0 — it's your own free tier.
+
+**Name gotcha:** the legacy monolith used `NEXT_PUBLIC_GEMINI_API_KEY` — a
+*different* name that Compose ignores, retired on purpose (`NEXT_PUBLIC_`
+means "shipped to the browser"). If your `.env` only has the old spelling,
+planning still answers 503.
+
+**Check it's live** — the service logs its key state once at boot:
+
+```bash
+docker compose logs gemini-service | grep aiGeneration
+# configured:  "aiGeneration":"configured (model gemini-3.6-flash)"
+# not set:     "aiGeneration":"GEMINI_API_KEY missing — AI endpoints answer 503"
+```
+
+(The check is the log, not `/healthz` — liveness probes only answer "is the
+process up", which is true either way by design: a missing key disables a
+capability, it never crashes the service.)
+
+Then a real (cheap) AI call through the gateway:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/dev-token | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+curl -s -X POST http://localhost:8080/api/gemini/generate-weather \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"form":{"source":"Singapore","destination":"Tokyo","startDate":"2026-10-01","endDate":"2026-10-03","minBudget":1000,"maxBudget":3000,"preferences":[],"travelGroup":"solo","numberPeople":1}}'
+# → a JSON with generated weather text (not a 503)
+```
+
 ## 4. Verifying it works — why curl?
 
 With microservices there's no single "open the browser and see it" moment: the
@@ -268,6 +324,7 @@ docker compose down -v                # ⚠️ also DELETE the database volumes 
 | `{"error":"No route for GET /x"}` (JSON) | You reached a real service but used a path it doesn't serve — check that service's README endpoints table |
 | `Cannot GET /x` (HTML) | Same idea from Express's default handler — also a wrong path |
 | `401 {"error":...}` on a protected route | Missing/expired token — mint a fresh one (§4.2) |
+| AI endpoints answer `503 ... not configured` | No key in the root `.env` — see §3.1 (the feature is off by design; everything else still works) |
 | `400 ... "Invalid uuid"` | Itinerary routes take the user id from the URL and require a UUID — use the `sub` value from your token (the default dev token's `sub` is the seeded demo user `1b9472e1-a85e-43bf-9898-6f44e2b20809`) |
 | Code changes don't appear | Images are snapshots: re-run `docker compose up --build -d` (add the service name to rebuild just one) |
 
