@@ -11,12 +11,21 @@
  * Path prefixes mirror the gateway route table (services/gateway/src/
  * upstreams.ts): the gateway forwards `/api/<area>/*` UNCHANGED, so the
  * service-mounted paths are exactly what this client calls.
+ *
+ * NOTE: contracts are imported per DTO FILE (`@smart/shared/src/dto/*`), not
+ * from the `@smart/shared` barrel — the barrel also re-exports the server
+ * adapters (pg/amqplib/nodemailer/S3), whose Node builtins cannot resolve in
+ * a browser bundle. Subpath-scoped contract imports are what keep this
+ * package shippable to the client.
  */
 
-// Schemas are imported from the dto modules directly, NOT the @smart/shared
-// root index: the root re-exports every adapter (nodemailer, amqplib, pg, …),
-// which cannot be bundled for the browser. Deep paths keep this client (and
-// every page importing it) browser-safe.
+import {
+  GetDemographicsResponseSchema,
+  MeResponseSchema,
+  UpdateProfileSchema,
+  UserDemographicsSchema,
+  UserProfileSchema,
+} from "@smart/shared/src/dto/auth";
 import {
   GetDemographicsResponseSchema,
   MeResponseSchema,

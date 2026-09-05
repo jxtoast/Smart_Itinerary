@@ -5,6 +5,7 @@ import ItineraryTimeline from "../../ItineraryTimeline";
 import { Itinerary } from '@/types/Itinerary';
 import { WeatherForecast } from '@/types/WeatherForecast';
 import { getApiClient } from "@/lib/api";
+import ExportPdfButton from "@/components/tools/ExportPdfButton";
 import { parse} from 'date-fns';
 
 export default function ItineraryPage()
@@ -103,6 +104,7 @@ export default function ItineraryPage()
             {itinerary ? (
             <div>
                 <ItineraryTimeline itinerary={itinerary} weatherForecast={weatherForecast} userId="not null" itineraryId="not null" flightDisplayDetails={[]} isGeneratedItinerary={false}/>
+                <ExportPdfButton itineraryId={String(itineraryId)} />
             </div>
             ) : (
             <div>Error viewing itinerary. Please try again later.</div>

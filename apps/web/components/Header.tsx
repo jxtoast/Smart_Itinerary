@@ -51,6 +51,9 @@ export const Header = () => {
                 <Link id='profile' href={`/profile/${user.id}`} className="text-gray-700 hover:text-black active:text-black focus:text-black">Profile</Link>
               </li>
               <li>
+                <Link id='groups' href="/groups" className="text-gray-700 hover:text-black active:text-black focus:text-black">Groups</Link>
+              </li>
+              <li>
                 <a onClick={signOut} className="text-gray-700 hover:text-black active:text-black focus:text-black">Logout</a>
               </li>
             </ul>

@@ -8,34 +8,44 @@
  * (`@smart/shared/src/dto/*`) so client and services can never drift apart.
  */
 
+/**
+ * Types are imported per shared DTO file (not the barrel) for the same
+ * browser-bundle reason client.ts documents — one consistent rule.
+ */
+import type {
+  GetDemographicsResponse,
+  MeResponse,
+  UpdateDemographics,
+  UpdateProfile,
+} from "@smart/shared/src/dto/auth";
 import type {
   CreateItineraryRequest,
   CreateItineraryResponse,
+  GetItineraryResponse,
+  ListItinerariesResponse,
+  UpdateItineraryRequest,
+} from "@smart/shared/src/dto/itineraries";
+import type {
   FlightsSearchRequest,
   FlightsSearchResponse,
   GenerateTextResponseSchema,
   GenerateItineraryRequestSchema,
-  GetDemographicsResponse,
-  GetItineraryResponse,
-  GroupCreate,
-  GroupDto,
   HotelsSearchRequest,
   HotelsSearchResponse,
-  JoinGroup,
-  ListItinerariesResponse,
-  MeResponse,
-  MemberInvite,
   PlanRequest,
   PlanResponse,
   ReferenceResponse,
+} from "@smart/shared/src/dto/gemini";
+import type {
+  ExportPdfResponse,
+  GroupCreate,
+  GroupDto,
+  JoinGroup,
+  MemberInvite,
   ShareCreate,
   ShareResponse,
   SharedItineraryResponse,
-  ExportPdfResponse,
-  UpdateDemographics,
-  UpdateItineraryRequest,
-  UpdateProfile,
-} from "@smart/shared";
+} from "@smart/shared/src/dto/tools";
 
 /**
  * Shared defines the profile/ generate-text contracts as schemas without type
