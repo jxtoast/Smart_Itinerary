@@ -30,8 +30,11 @@ const logger = createLogger("gateway-proxy");
 
 /** Largest accepted request body (JSON itineraries are small; PDFs go via presigned URLs). */
 const BODY_LIMIT = "1mb";
-/** Hard ceiling for one upstream call. Gemini generation can be slow, so the default is generous. */
-const UPSTREAM_TIMEOUT_MS = 60_000;
+/** Hard ceiling for one upstream call. The plan facade runs two real Gemini
+ * generations (concurrently since the facade parallelized them) and each can
+ * take tens of seconds on a cold call — the ceiling must fit the slowest
+ * honest request, not just the average one. */
+const UPSTREAM_TIMEOUT_MS = 120_000;
 
 export interface RequestWithRawBody extends Request {
   rawBody?: Buffer;
@@ -130,13 +133,30 @@ export function createProxyHandler(route: UpstreamRoute): RequestHandler {
       res.status(upstreamResponse.status).send(responseBody);
     } catch (error) {
       // Pre-formed ApiErrors (e.g. the absent-URL case) keep their honest
-      // detail; anything else is a connection failure / timeout — the
-      // upstream is down. Say so instead of crashing the gateway.
+      // detail; anything else is a connection failure / timeout. The two are
+      // answered differently: a TIMEOUT means the upstream is alive but the
+      // work is genuinely slow (AI generation) → 504 with "timed out", so
+      // callers can say "try again" instead of "it's down". Everything else
+      // is the upstream being unreachable → 502. Either way the gateway
+      // answers, never crashes — an aborted upstream must not leave the
+      // browser holding a dead socket.
       if (error instanceof ApiError) {
         next(error);
         return;
       }
       const reason = error instanceof Error ? error.message : String(error);
+      const timedOut = error instanceof Error && error.name === "TimeoutError";
+      if (timedOut) {
+        logger.warn({ upstream: route.serviceName, reason }, "upstream request timed out");
+        next(
+          new ApiError(
+            504,
+            `${route.serviceName} timed out after ${Math.round(UPSTREAM_TIMEOUT_MS / 1000)}s`,
+            reason
+          )
+        );
+        return;
+      }
       logger.warn({ upstream: route.serviceName, reason }, "upstream request failed");
       next(new ApiError(502, `${route.serviceName} is down`, reason));
     }

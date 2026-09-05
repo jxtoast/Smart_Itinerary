@@ -55,21 +55,17 @@ export class ItineraryPlannerFacade {
     form: PlanForm,
     flightSearchCriteria?: FlightSearchCriteria
   ): Promise<PlanResult> {
-    // Gemini first: the two AI generations are sequential (as in the
-    // monolith) because they share the model client and stay under the
-    // per-key rate limit. runAuditedGeneration records each call.
-    const itineraryResults = await runAuditedGeneration(
-      this.pool,
-      this.geminiService,
-      "itinerary",
-      buildItineraryGeneration(form)
-    );
-    const weatherResults = await runAuditedGeneration(
-      this.pool,
-      this.geminiService,
-      "weather",
-      buildWeatherGeneration(form)
-    );
+    // Gemini first. The two AI generations run CONCURRENTLY (Promise.all):
+    // they are independent of each other, runAuditedGeneration is stateless
+    // (pool + client only), and two in-flight calls sit far below the
+    // free-tier per-key rate limit. Each real generation takes tens of
+    // seconds, so sequential (the monolith's order) doubled the user's
+    // wait — and could exceed the gateway's upstream timeout on a cold
+    // call. Both calls are audited exactly as before.
+    const [itineraryResults, weatherResults] = await Promise.all([
+      runAuditedGeneration(this.pool, this.geminiService, "itinerary", buildItineraryGeneration(form)),
+      runAuditedGeneration(this.pool, this.geminiService, "weather", buildWeatherGeneration(form)),
+    ]);
 
     const itineraryData = parseGeminiJson<Itinerary>(itineraryResults);
     const weatherData = parseGeminiJson<WeatherForecast | WeatherForecast[]>(weatherResults);
