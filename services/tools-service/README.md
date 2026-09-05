@@ -88,6 +88,7 @@ Two demo-grade conventions worth knowing:
 | `DATABASE_URL` | — | Postgres of this service (`tools-db`/`smart_tools` in compose) |
 | `AMQP_URL` | — | RabbitMQ; `group.invited` + `itinerary.shared` published here (best-effort — a broker outage never fails an invite/share) |
 | `S3_ENDPOINT` | — (real S3) | MinIO in compose (`http://minio:9000`); unset on AWS |
+| `S3_PUBLIC_ENDPOINT` | — (real S3) | Browser-facing endpoint presigned URLs are signed for — compose sets `http://localhost:9000` because the browser cannot resolve the internal `minio` name; unset on AWS (S3 URLs are public) |
 | `S3_BUCKET` / `S3_REGION` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` / `S3_FORCE_PATH_STYLE` | see `packages/shared/.env.example` | storage adapter config |
 | `S3_PRESIGN_TTL_SECONDS` | `3600` | Lifetime of the presigned download URL (also reported as `expiresAt`) |
 | `ITINERARY_SERVICE_URL` | `http://localhost:8082` | Internal fetch of itinerary aggregates |
