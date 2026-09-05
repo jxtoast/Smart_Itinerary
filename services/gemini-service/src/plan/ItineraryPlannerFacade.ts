@@ -62,6 +62,10 @@ export class ItineraryPlannerFacade {
     // reproduced live); running them back-to-back spaces them by a whole
     // generation (~25s), which is what usually keeps the second one under
     // the quota window. runAuditedGeneration records each call.
+    // UPGRADE PATH: on a paid-tier key (hundreds of requests/minute) the
+    // quota concern disappears — switch these two awaits to a single
+    // Promise.all to halve the user-facing wait. Nothing else changes:
+    // both generations are independent and audited identically.
     const itineraryResults = await runAuditedGeneration(
       this.pool,
       this.geminiService,
