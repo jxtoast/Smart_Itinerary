@@ -1,7 +1,8 @@
 "use client";
 
 import { useHotels } from "@/hooks/useHotels";
-import { ItineraryService } from "@/services/ItineraryService";
+import { getApiClient } from "@/lib/api";
+import { Itinerary } from "@/types/Itinerary";
 
 import { useEffect, useState } from "react";
 import HotelSearchResultCard from "@/components/hotel/HotelSearchResultCard";
@@ -26,22 +27,24 @@ export default function HotelSuggestion() {
     setHotelSearchData([]);
 
     if (itineraryId) {
-      const userItineraryData = await ItineraryService.getItinerary(
-        itineraryId ?? ""
-      );
+      try {
+        // The saved itinerary comes from the Itinerary Service
+        // (GET /api/itineraries/:id); its destination drives the suggestion
+        // query. A 404 (unknown/stale id) degrades to "No Suggested Hotels!".
+        // The aggregate is the app's Itinerary shape plus extra server keys.
+        const userItineraryData = (await getApiClient().itineraries.get(
+          itineraryId
+        )) as unknown as Itinerary;
 
-      if (userItineraryData) {
         setItineraryData(userItineraryData);
-        setIsLoading(true);
-        const hotelSuggestions = await getHotelQueryResult(
-          userItineraryData.destination
-        );
+        const hotelSuggestions = await getHotelQueryResult(userItineraryData.destination);
         if (hotelSuggestions && hotelSuggestions?.length > 0) {
           setHotelSearchData(hotelSuggestions);
         }
+      } catch (error) {
+        console.error("Error loading hotel suggestions:", error);
+      } finally {
         setIsLoading(false);
-      } else {
-        return null;
       }
     }
   };

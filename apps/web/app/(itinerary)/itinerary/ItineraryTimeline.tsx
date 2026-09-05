@@ -1,6 +1,6 @@
-import { ItineraryService } from "@/services/ItineraryService";
 import { ItineraryTimelineProps } from "./ItineraryTimelineProps";
-import { UserService } from "@/services/UserService";
+import { getApiClient } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/apiErrors";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -34,6 +34,7 @@ import withReactContent from "sweetalert2-react-content";
 import { signinWithGoogleWithRedirect } from "@/lib/actions";
 import { useAuth } from "@/context/AuthContext";
 import { FlightDisplayDetails } from '@/types/FlightDisplayDetails'
+import type { CreateItineraryRequest } from "@smart/shared";
 
 
 
@@ -55,7 +56,6 @@ export default function ItineraryTimeline({
   const [originalItinerary, setOriginalItinerary] = useState(itinerary);
   const { user } = useAuth();
 
-  const userSession = UserService.getUserSession();
   const [sortOption, setSortOption] = useState('price-asc');
 
   const handleSortChange = (option:string) => {
@@ -166,26 +166,64 @@ const sortedFlightDetails = useMemo(() => {
   }, [flightDisplayDetails, sortOption]);
 
 
+  /**
+   * Save a generated itinerary through the Itinerary Service
+   * (POST /api/itineraries). The service stores the whole aggregate in one
+   * transaction and publishes `itinerary.created`, which triggers the
+   * confirmation/reminder emails.
+   */
   async function SaveItinerary(): Promise<void> {
+    if (!user || !user.id) {
+      return;
+    }
     setLoading(true);
-    if (user && user.id) {
-      await ItineraryService.saveItinerary(user.id, itinerary, weatherForecast);
-      setLoading(false);
+    try {
+      // The wire payload is the shared ItineraryPayload schema's output; the
+      // app's Itinerary interface is the same shape at runtime but keeps a
+      // few keys optional (e.g. demographics.currency) that the schema
+      // defaults in server-side — so pin it onto the wire type at the call.
+      await getApiClient().itineraries.create({
+        userId: user.id,
+        itinerary: itinerary as unknown as CreateItineraryRequest["itinerary"],
+        weatherForecast: weatherForecast,
+      });
       router.push(`/profile/${user.id}`);
+    } catch (error) {
+      console.error("Error saving itinerary:", error);
+      Swal.fire({ icon: "error", title: "Save failed", text: apiErrorMessage(error, "Your itinerary could not be saved.") });
+    } finally {
+      setLoading(false);
     }
   }
 
+  /**
+   * Persist drag-and-drop edits through the Itinerary Service
+   * (PUT /api/itineraries/:id). The PUT replaces the whole aggregate —
+   * including the reordered activities — in one transaction.
+   */
   async function UpdateItinerary(): Promise<void> {
+    if (!user || !user.id) {
+      return;
+    }
+    const itinerary = itineraryDetails;
+    if (!itinerary.id) {
+      Swal.fire({ icon: "error", title: "Update failed", text: "This itinerary has no id to update." });
+      return;
+    }
     setLoading(true);
-    if (user && user.id) {
-      const itinerary = itineraryDetails;
-      await ItineraryService.updateItinerary(
-        user.id,
-        itinerary,
-        weatherForecast
-      );
-      setLoading(false);
+    try {
+      // Same payload type as the create call above.
+      await getApiClient().itineraries.update(itinerary.id, {
+        userId: user.id,
+        itinerary: itinerary as unknown as CreateItineraryRequest["itinerary"],
+        weatherForecast: weatherForecast,
+      });
       router.push(`/profile/${user.id}`);
+    } catch (error) {
+      console.error("Error updating itinerary:", error);
+      Swal.fire({ icon: "error", title: "Update failed", text: apiErrorMessage(error, "Your itinerary could not be updated.") });
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -301,12 +339,17 @@ const sortedFlightDetails = useMemo(() => {
   const isViewingOwnItinerary =
     userId === "not null" && itineraryId === "not null";
 
+  // A failed/partial generation can omit demographics or accommodation —
+  // render the empty state instead of crashing on the missing keys.
+  const accommodationCount = itinerary.accommodation?.length ?? 0;
+  const currencyCode = itinerary.demographics?.currency;
+
   const colClass =
     {
       1: "grid-cols-1",
       2: "grid-cols-2",
       3: "grid-cols-3",
-    }[itinerary.accommodation.length] || "grid-cols-4";
+    }[accommodationCount] || "grid-cols-4";
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -446,7 +489,7 @@ const sortedFlightDetails = useMemo(() => {
                         <span className="font-bold mr-2">
                           Estimated Price:{" "}
                         </span>{" "}
-                        ${item.estimatedCost} {itinerary.demographics.currency}
+                        ${item.estimatedCost} {currencyCode}
                       </div>
                     </div>
                   </div>
@@ -641,7 +684,7 @@ const sortedFlightDetails = useMemo(() => {
                                       Estimated Price:{" "}
                                     </span>{" "}
                                     ${each.estimatedCost}{" "}
-                                    {itinerary.demographics.currency}
+                                    {currencyCode}
                                   </div>
                                   <div className="text-md flex items-center justify-center">
                                     <svg
@@ -685,7 +728,7 @@ const sortedFlightDetails = useMemo(() => {
           {itinerary.estimatedTotalCost ? (
             <h3 className="text-lg font-black text-black">
               Estimated Total Cost: {itinerary.estimatedTotalCost}{" "}
-              {itinerary.demographics.currency}
+              {currencyCode}
             </h3>
           ) : (
             <h3>Estimated Total Cost not available</h3>

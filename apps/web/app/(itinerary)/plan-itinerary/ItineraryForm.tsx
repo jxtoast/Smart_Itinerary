@@ -6,6 +6,7 @@ import { TravelType } from "@/types/TravelType";
 import CountrySearch from "@/app/(itinerary)/plan-itinerary/CountrySearch";
 import { useRouter } from "next/navigation";
 import { UserService } from "@/services/UserService";
+import { getApiClient } from "@/lib/api";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import { signinWithGoogleWithRedirect } from '@/lib/actions'
@@ -117,31 +118,44 @@ export default function ItineraryForm({
     const checked = event.target.checked;
     setPrefChecked(checked);
     if (checked) {
-      console.log("userSession", user)
       if (user && user.id) {
-        const userDemographics = await UserService.getUserDemographicsById(user.id)
-        if (userDemographics) {
-          setMinBudget(userDemographics.minBudget ? userDemographics.minBudget : 0 );
-          setMaxBudget(userDemographics.maxBudget ? userDemographics.maxBudget : 0 );
-          const purpose = userDemographics.purpose.split(","); //Split string into array
-          setPreferences(purpose);
-          setTravelGroup({
-            type_name: userDemographics.travelType,
-            number_of_people: userDemographics.numberOfPeople,
-          })
-        } else {
+        // Saved preferences come from auth-service (GET /api/auth/demographics,
+        // cookie-identified) instead of a browser-side Supabase query. A user
+        // who never saved preferences gets null budgets + empty strings back,
+        // which is treated exactly like the old "no row" case below.
+        try {
+          const userDemographics = await getApiClient().auth.getDemographics();
+          const hasSavedPreferences =
+            userDemographics.travelType !== "" || userDemographics.purpose !== "";
+          if (hasSavedPreferences) {
+            setMinBudget(userDemographics.minBudget ? userDemographics.minBudget : 0 );
+            setMaxBudget(userDemographics.maxBudget ? userDemographics.maxBudget : 0 );
+            const purpose = userDemographics.purpose.split(","); //Split string into array
+            setPreferences(purpose);
+            setTravelGroup({
+              type_name: userDemographics.travelType,
+              number_of_people: String(userDemographics.numberOfPeople ?? "1"),
+            })
+          } else {
+            setPrefChecked(false);
+            Swal.fire({
+              text: "No valid preferences found. Please update your information.",
+            });
+          }
+        } catch (error) {
+          console.error("Error loading saved preferences:", error);
           setPrefChecked(false);
           Swal.fire({
-            text: "No valid preferences found. Please update your information.",
+            text: "Could not load your preferences. Please try again.",
           });
         }
-      } 
+      }
 
       else {
         triggerLoginSwal();
         setPrefChecked(false);
       }
-    } 
+    }
   };
 
   return (

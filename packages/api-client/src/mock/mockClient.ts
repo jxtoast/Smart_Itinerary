@@ -11,18 +11,19 @@
  * itinerary exists (the 404 surfaces at view time instead).
  */
 
+// Same deep-path imports as client.ts: the @smart/shared root index
+// re-exports Node-only adapters that cannot be bundled for the browser.
+import { UpdateProfileSchema, UserDemographicsSchema } from "@smart/shared/src/dto/auth";
+import { CreateItineraryRequestSchema } from "@smart/shared/src/dto/itineraries";
+import { HotelsSearchRequestSchema, PlanRequestSchema } from "@smart/shared/src/dto/gemini";
 import {
-  CreateItineraryRequestSchema,
   GroupCreateSchema,
-  HotelsSearchRequestSchema,
   JoinGroupSchema,
   MemberInviteSchema,
-  PlanRequestSchema,
   ShareCreateSchema,
-  UpdateProfileSchema,
-  UserDemographicsSchema,
-} from "@smart/shared";
-import type { GroupDto, MeResponse } from "@smart/shared";
+} from "@smart/shared/src/dto/tools";
+import type { GroupDto } from "@smart/shared/src/dto/tools";
+import type { MeResponse } from "@smart/shared/src/dto/auth";
 import { ApiClientError } from "../errors";
 import type { ApiClient, GenerateItineraryRequest } from "../types";
 import {

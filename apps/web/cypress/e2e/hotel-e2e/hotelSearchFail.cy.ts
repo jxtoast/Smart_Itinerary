@@ -1,6 +1,8 @@
 describe("Hotel search fails", () => {
   it("handles case with no results (Australia)", () => {
-    cy.visit("/hotel?itinerary=26");
+    // Itinerary 101 is the api-client mock's canned saved trip (Tokyo);
+    // no mock hotel matches "australia".
+    cy.visit("/hotel?itinerary=101");
 
     cy.get("#search").type("australia");
 

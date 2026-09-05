@@ -1,6 +1,7 @@
 "use client";
 import { useAuth } from "@/context/AuthContext";
-import { ItineraryService } from "@/services/ItineraryService";
+import { getApiClient } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/apiErrors";
 import useHotelStore from "@/store/hotelStore";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -36,12 +37,17 @@ const HotelDetailPage = () => {
       confirmButtonText: "Yes!",
       showLoaderOnConfirm: true,
       preConfirm: async () => {
+        if (!hotelDetails?.id) {
+          Swal.showValidationMessage("This hotel is not linked to a saved itinerary stay.");
+          return;
+        }
         try {
-          await ItineraryService.deleteAccomodation(hotelDetails?.id);
-          //   redirectBacktoItinerary();
+          // Removes the stay row through the Itinerary Service
+          // (DELETE /api/itineraries/accommodation/:id).
+          await getApiClient().itineraries.removeAccommodation(String(hotelDetails.id));
         } catch (error) {
           Swal.showValidationMessage(
-            `Error deleting hotel from itinerary: ${error}`
+            `Error deleting hotel from itinerary: ${apiErrorMessage(error, "please try again.")}`
           );
           console.error("Error deleting hotel from itinerary:", error);
         }
