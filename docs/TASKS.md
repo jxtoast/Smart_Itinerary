@@ -186,6 +186,14 @@ so parallel branches land merge-clean:
    the blocker in Notes, and finish every other part of the task that you can.
 7. **Check-in gates** — after each phase's last task merges, pause and report to the
    user before starting the next phase (user wants phase-by-phase confirmation).
+8. **Working checklist (`.context/todos.md`)** — at claim time, write your task's
+   subtasks into `.context/todos.md` in your workspace as `- [ ]` checkboxes
+   (claim row → implement per endpoint/file → verify → README → tracker row →
+   push), with a `State:` line at the top (`in-progress` / `blocked` / `done`).
+   Tick items `- [x]` as you finish them and keep the file current while you
+   work: it is the user's live window into your progress, and an agent going
+   off the rails shows up as unticked items piling up. `.context/` is
+   gitignored and workspace-local — the authoritative board stays `docs/TASKS.md`.
 
 **Status legend:** `todo` · `in-progress` · `blocked` · `done`
 
