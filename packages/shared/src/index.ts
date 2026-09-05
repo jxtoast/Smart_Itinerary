@@ -9,7 +9,7 @@
 
 export * from "./types/Country";
 export * from "./types/FactoryType";
-export {
+export type {
   FlightSearchCriteria,
   FlightEndPoint,
   FlightOffer,
