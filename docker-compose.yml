@@ -273,6 +273,45 @@ services:
       timeout: 3s
       retries: 5
 
+  # ------------------------------------------------ application: tools-service
+  # Diagram: "Tools Service (Export PDF, Sharing)" — owns groups, invites and
+  # share links in tools-db, uploads PDFs to MinIO (S3 adapter) and fetches
+  # itinerary aggregates from itinerary-service for export/share views. The
+  # gateway proxies /api/tools/* here.
+  tools-service:
+    build:
+      context: .
+      dockerfile: services/tools-service/Dockerfile
+    environment:
+      SERVICE_NAME: tools-service
+      PORT: "8084"
+      DATABASE_URL: postgres://smart:smart@tools-db:5432/smart_tools
+      AMQP_URL: amqp://guest:guest@rabbitmq:5672
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: ap-southeast-1
+      S3_BUCKET: si-files
+      S3_ACCESS_KEY_ID: smart
+      S3_SECRET_ACCESS_KEY: smart-local-dev
+      S3_FORCE_PATH_STYLE: "true"
+      S3_PRESIGN_TTL_SECONDS: "3600"
+      ITINERARY_SERVICE_URL: http://itinerary-service:8082
+      # Public origin of the web app — share links must resolve in the
+      # BROWSER, so this is the host's origin, not a compose hostname.
+      WEB_PUBLIC_URL: http://localhost:3000
+      LOG_LEVEL: info
+    ports:
+      - "8084:8084"
+    depends_on:
+      tools-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8084/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
 volumes:
   auth-db-data:
   itinerary-db-data:
