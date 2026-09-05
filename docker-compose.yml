@@ -212,6 +212,37 @@ services:
       timeout: 3s
       retries: 5
 
+  # -------------------------------------------------- application: gemini-service
+  # Diagram: "Gemini Service (Hotel Service)" — AI generation, hotels,
+  # flights, reference data. Third-party keys (GEMINI_API_KEY /
+  # AMADEUS_API_KEY) come from the shell/.env, never committed; without them
+  # the service still boots and only AI/flight endpoints answer 503.
+  gemini-service:
+    build:
+      context: .
+      dockerfile: services/gemini-service/Dockerfile
+    environment:
+      SERVICE_NAME: gemini-service
+      PORT: "8083"
+      DATABASE_URL: postgres://smart:smart@gemini-db:5432/smart_gemini
+      AMQP_URL: amqp://guest:guest@rabbitmq:5672
+      LOG_LEVEL: info
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      AMADEUS_API_KEY: ${AMADEUS_API_KEY:-}
+      AMADEUS_FLIGHTS_API_BASE_URL: ${AMADEUS_FLIGHTS_API_BASE_URL:-https://test.api.amadeus.com/v2}
+    ports:
+      - "8083:8083"
+    depends_on:
+      gemini-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8083/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
 volumes:
   auth-db-data:
   itinerary-db-data:
