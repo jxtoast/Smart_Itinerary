@@ -1,12 +1,24 @@
 import Rating from "@/components/hotel/Rating";
 import { useAuth } from "@/context/AuthContext";
 import { Hotel } from "@/types/Hotel";
-import { HotelService } from "@/services/HotelService";
+import type { CreateItineraryRequest } from "@smart/shared";
+import { getApiClient } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/apiErrors";
 import useHotelStore from "@/store/hotelStore";
 import itineraryStore from "@/store/itineraryStore";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
+
+/**
+ * Gemini's hotel price is display text ("$180"); the Itinerary Service
+ * stores the estimated cost as a number. Unparseable prices become 0 rather
+ * than NaN (which would fail the request schema's z.number() check).
+ */
+function parseHotelPricePerNight(price: string): number {
+  const parsed = parseFloat(price.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
 export default function HotelSearchResultCard({
   isSuggestion = false,
@@ -41,15 +53,40 @@ export default function HotelSearchResultCard({
         showLoaderOnConfirm: true,
         preConfirm: async () => {
           try {
-            const itinerary_id = parseInt(itineraryId);
-            const id = await HotelService.saveHoteltoItinerary(
-              itinerary_id,
-              hotel
-            );
-            if (id) return id;
+            // The Itinerary Service has no "add one stay" endpoint: its PUT
+            // replaces the whole aggregate, so adding a hotel is a
+            // read-modify-write — fetch the saved itinerary, append the stay,
+            // and PUT it back (children are swapped wholesale server-side).
+            // The weather forecast rides along unchanged, otherwise the PUT
+            // would overwrite the stored forecast with null. The GET response
+            // is typed loosely by the shared schema, so pin the wire payload
+            // shape (plus the server-assigned keys) onto it once here.
+            type SavedAggregate = CreateItineraryRequest["itinerary"] & {
+              userId: string;
+              weatherForecast: unknown;
+            };
+            const client = getApiClient();
+            const savedItinerary = (await client.itineraries.get(
+              itineraryId
+            )) as unknown as SavedAggregate;
+            const newStay = {
+              name: hotel.name,
+              estimatedCost: parseHotelPricePerNight(hotel.price),
+              imageUrl: hotel.image_url,
+              hotelDescription: hotel.description,
+            };
+            await client.itineraries.update(itineraryId, {
+              userId: savedItinerary.userId,
+              itinerary: {
+                ...savedItinerary,
+                accommodation: [...savedItinerary.accommodation, newStay],
+              },
+              weatherForecast: savedItinerary.weatherForecast,
+            });
+            return itineraryId;
           } catch (error) {
             Swal.showValidationMessage(
-              `Error saving hotel to itinerary: ${error}`
+              `Error saving hotel to itinerary: ${apiErrorMessage(error, "please try again.")}`
             );
             console.error("Error saving hotel to itinerary:", error);
           }

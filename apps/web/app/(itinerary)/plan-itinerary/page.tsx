@@ -1,7 +1,23 @@
+"use client";
+
+/**
+ * Plan-itinerary page (diagram: "Clients — Web" → API Gateway → Gemini
+ * Service). Loads the two reference datasets the form needs — countries
+ * (with hub airport codes) and travel types — from gemini-service through
+ * the typed api-client (`GET /api/gemini/reference/*`).
+ *
+ * This used to be a server component querying Supabase via the monolith's
+ * fetch-strategy classes. It is a client component now because the reference
+ * endpoints sit behind the gateway's JWT check: the session cookie lives in
+ * the browser, so the fetch has to happen there (mock mode swaps the same
+ * client for the canned in-memory one, so this page still renders offline).
+ */
+
+import { useEffect, useState } from "react";
 import { Country } from "@/types/Country";
 import { TravelType } from "@/types/TravelType";
-import { CommonService } from "@/services/CommonService";
-import {FactoryType } from "@/types/FactoryType";
+import { getApiClient } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/apiErrors";
 import dynamic from "next/dynamic";
 
 const ItineraryForm = dynamic(() =>
@@ -10,9 +26,48 @@ const ItineraryForm = dynamic(() =>
   ),
 );
 
-export default async function PlanItinerary() {
-  const travelData = await CommonService.fetchDataStrategy(FactoryType.TRAVEL) as TravelType[];
-  const countryData = await CommonService.fetchDataStrategy(FactoryType.COUNTRY) as Country[];
+export default function PlanItinerary() {
+  const [countryData, setCountryData] = useState<Country[]>([]);
+  const [travelData, setTravelData] = useState<TravelType[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadReferenceData = async () => {
+      try {
+        const client = getApiClient();
+        // Both lists come from gemini-db (seeded reference tables); zod has
+        // already validated the envelope, the item shape is the shared
+        // Country/TravelType contract the form has always used.
+        const [countries, travelTypes] = await Promise.all([
+          client.gemini.listCountries(),
+          client.gemini.listTravelTypes(),
+        ]);
+        setCountryData(countries.items as Country[]);
+        setTravelData(travelTypes.items as TravelType[]);
+      } catch (error) {
+        console.error("Error loading plan-form reference data:", error);
+        setLoadError(apiErrorMessage(error, "Could not load the planning form data."));
+      }
+    };
+    loadReferenceData();
+  }, []);
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center p-8">
+        <h1 className="text-3xl font-bold text-black">Generate Your Itinerary</h1>
+        <p className="mt-4 text-lg text-black">{loadError}</p>
+      </div>
+    );
+  }
+
+  if (countryData.length === 0 || travelData.length === 0) {
+    return (
+      <div className="absolute inset-0 w-full h-full bg-gray-900 bg-opacity-50 flex items-center justify-center z-10">
+        <span className="loading loading-spinner text-white text-2xl"></span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center p-8">

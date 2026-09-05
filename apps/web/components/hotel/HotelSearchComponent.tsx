@@ -32,28 +32,28 @@ export default function HotelSearchComponent({
 
   // USEEFFECTS
   useEffect(() => {
-    try {
-      // This debounce function is to delay the search until the user finish typing
-      const delayDebounceFn = setTimeout(async () => {
-        if (query !== "") {
-          setIsLoading(true);
-          setIsOpen(true);
-          setDebouncedQuery(query);
-          // data return is in an array of 20 items
+    // This debounce function is to delay the search until the user finish typing
+    const delayDebounceFn = setTimeout(async () => {
+      if (query !== "") {
+        setIsLoading(true);
+        setIsOpen(true);
+        setDebouncedQuery(query);
+        try {
           const getData = await getHotelQueryResult(query);
-          if (getData && getData.length > 0) {
-            setTempSearchResult(getData);
-          }
-          setIsLoading(false);
-        } else {
-          setIsOpen(false);
+          setTempSearchResult(getData ?? []);
+        } catch (error) {
+          // gemini-service answers 503 when no AI key is configured — the
+          // dropdown degrades to "No Results" instead of hanging or crashing.
+          console.error("Error fetching hotel suggestions:", error);
           setTempSearchResult([]);
         }
-      }, 500);
-      return () => clearTimeout(delayDebounceFn);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
+        setIsLoading(false);
+      } else {
+        setIsOpen(false);
+        setTempSearchResult([]);
+      }
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
   }, [query]);
 
   useEffect(() => {

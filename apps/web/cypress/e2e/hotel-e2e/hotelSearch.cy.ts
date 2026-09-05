@@ -1,8 +1,9 @@
 describe("Hotel Search", () => {
   it("search for a hotel place", () => {
-    cy.visit("/hotel?itinerary=26");
+    // Itinerary 101 is the api-client mock's canned saved trip (Tokyo).
+    cy.visit("/hotel?itinerary=101");
 
-    cy.get("#search").type("Singapore");
+    cy.get("#search").type("Tokyo");
 
     // Wait for the whole list to appear
     cy.get('[data-testid="search-options"]', { timeout: 10000 })

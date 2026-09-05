@@ -27,7 +27,9 @@ export default function CountrySearch({
   const handleCountrySelect = (country: Country) => {
     setSearchTerm(country.country_name);
     setDropdownOpen(false); // Close the dropdown when a country is selected
-    onSearchTermChange(country.country_name, country.airport.airport_code);
+    // Reference rows may lack a hub airport (e.g. offline mock data) — the
+    // flight-search criteria then simply have no origin/destination code.
+    onSearchTermChange(country.country_name, country.airport?.airport_code ?? "");
   };
 
   const filterCountries = () => {

@@ -3,7 +3,8 @@ import { useState, useEffect} from "react";
 import { useParams } from "next/navigation";
 import ItineraryTimeline from "../../ItineraryTimeline";
 import { Itinerary } from '@/types/Itinerary';
-import { ItineraryService } from "@/services/ItineraryService";
+import { WeatherForecast } from '@/types/WeatherForecast';
+import { getApiClient } from "@/lib/api";
 import { parse} from 'date-fns';
 
 export default function ItineraryPage()
@@ -20,7 +21,7 @@ export default function ItineraryPage()
       // Time format is "9:00 AM - 12:00 PM"
       // Extract start time from the string and parse it as Date object
       const startTime = timeString.split(' - ')[0]; // "9:00 AM"
-      
+
       // Parse the start time into a Date object
       return parse(startTime, 'h:mm a', new Date());
     }
@@ -33,15 +34,19 @@ export default function ItineraryPage()
         const fetchItinerary = async () => {
         setLoading(true);
         try {
-
-            const result = await ItineraryService.getItinerary(itineraryId as string);
-            console.log('result', result);
+            // The full aggregate (days/activities/accommodation) comes from the
+            // Itinerary Service (GET /api/itineraries/:id), already mapped to
+            // the camelCase Itinerary shape plus the stored weather JSONB; the
+            // shared response schema types it loosely, so pin the app's
+            // Itinerary type onto it once here. A 404 lands in the catch below.
+            const aggregate = await getApiClient().itineraries.get(itineraryId as string);
+            const result = aggregate as unknown as Itinerary & { weatherForecast: unknown };
             if (result) {
 
                 // Sort activities based on their timing (earliest to latest)
-                const sortedItineraryDays = result.itineraryDays.map((day: { activities: { timing: string }[] }) => {
-                    const sortedActivities = day.activities.sort((a: { timing: string }, b: { timing: string }) => {
-                    const timeA = parseTime(a.timing); 
+                const sortedItineraryDays = result.itineraryDays.map((day) => {
+                    const sortedActivities = day.activities.sort((a, b) => {
+                    const timeA = parseTime(a.timing);
                     const timeB = parseTime(b.timing);
                     return timeA.getTime() - timeB.getTime(); // Compare times
                     });
@@ -57,15 +62,26 @@ export default function ItineraryPage()
                     itineraryDays: sortedItineraryDays, // Overwrite the days with sorted activities
                 });
 
-                console.log('itinerary', result);
-
-                setWeatherForecast(result.weather_forecast);
+                // The stored weather JSONB varies by era: the legacy path
+                // saved a bare array of daily forecasts, while the plan
+                // response wraps them as { forecast: [...] } (the mock seed
+                // uses that shape too). The timeline renders an array, so
+                // unwrap here once.
+                const storedWeather = result.weatherForecast as
+                    | WeatherForecast[]
+                    | { forecast?: WeatherForecast[] }
+                    | null
+                    | undefined;
+                setWeatherForecast(
+                    Array.isArray(storedWeather) ? storedWeather : storedWeather?.forecast ?? null
+                );
             } else {
                 setItinerary(null);
             }
-            
+
         } catch (error) {
             console.error("Error fetching itinerary:", error);
+            setItinerary(null);
         } finally {
             setLoading(false);
         }
