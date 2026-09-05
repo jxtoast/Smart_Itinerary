@@ -212,6 +212,36 @@ services:
       timeout: 3s
       retries: 5
 
+  # --------------------------------------------------- email-service (Phase 1)
+  # Diagram: "Email Service" — consumes notifications + TTL-expired reminders
+  # from RabbitMQ and sends mail over SMTP (mailpit). AMQP-only: no DB.
+  # No depends_on mailpit — it defines no healthcheck to gate on; a send
+  # while Mailpit is down fails soft (shared broker retries once, then drops).
+  email-service:
+    build:
+      context: .
+      dockerfile: services/email-service/Dockerfile
+    environment:
+      SERVICE_NAME: email-service
+      PORT: "8085"
+      AMQP_URL: amqp://guest:guest@rabbitmq:5672
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      MAIL_FROM: Smart Itinerary <no-reply@smart-itinerary.local>
+      OWNER_EMAIL_FALLBACK: owner@smart-itinerary.local
+      WEB_APP_URL: http://localhost:3000
+      LOG_LEVEL: info
+    ports:
+      - "8085:8085"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8085/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
 volumes:
   auth-db-data:
   itinerary-db-data:
