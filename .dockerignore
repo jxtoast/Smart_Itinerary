@@ -1,0 +1,21 @@
+# Keep Docker build contexts small.
+#
+# All service images build with the repository root as their build context
+# (docker-compose.yml), but every Dockerfile COPYs only the exact files it
+# needs (workspace package.json files, packages/shared/, services/<name>/).
+# Everything below must therefore never enter the context: node_modules are
+# installed inside the image via `npm ci`, .next is local build output, and
+# .env* are secrets — excluding them here also guarantees secrets can never
+# leak into a published image layer.
+
+node_modules
+**/node_modules
+.next
+**/.next
+.git
+.env
+.env.*
+.context
+cypress/screenshots
+cypress/videos
+coverage
