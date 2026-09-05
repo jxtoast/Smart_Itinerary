@@ -8,7 +8,11 @@
  * seeded by `db/init/gemini-service.sql`.
  */
 
-import type { CreateItineraryRequest, GetDemographicsResponse, GroupDto, HotelDto, MeResponse } from "@smart/shared";
+// Subpath contract imports, not the barrel (see client.ts for why).
+import type { CreateItineraryRequest } from "@smart/shared/src/dto/itineraries";
+import type { GetDemographicsResponse, MeResponse } from "@smart/shared/src/dto/auth";
+import type { GroupDto } from "@smart/shared/src/dto/tools";
+import type { HotelDto } from "@smart/shared/src/dto/gemini";
 
 /**
  * Stored aggregate in the mock: the shared itinerary payload (the request

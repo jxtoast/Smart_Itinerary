@@ -11,37 +11,49 @@
  * Path prefixes mirror the gateway route table (services/gateway/src/
  * upstreams.ts): the gateway forwards `/api/<area>/*` UNCHANGED, so the
  * service-mounted paths are exactly what this client calls.
+ *
+ * NOTE: contracts are imported per DTO FILE (`@smart/shared/src/dto/*`), not
+ * from the `@smart/shared` barrel — the barrel also re-exports the server
+ * adapters (pg/amqplib/nodemailer/S3), whose Node builtins cannot resolve in
+ * a browser bundle. Subpath-scoped contract imports are what keep this
+ * package shippable to the client.
  */
 
 import {
+  GetDemographicsResponseSchema,
+  MeResponseSchema,
+  UpdateProfileSchema,
+  UserDemographicsSchema,
+  UserProfileSchema,
+} from "@smart/shared/src/dto/auth";
+import {
   CreateItineraryRequestSchema,
   CreateItineraryResponseSchema,
+  GetItineraryResponseSchema,
+  ListItinerariesResponseSchema,
+  UpdateItineraryRequestSchema,
+} from "@smart/shared/src/dto/itineraries";
+import {
   FlightsSearchRequestSchema,
   FlightsSearchResponseSchema,
   GenerateItineraryRequestSchema,
   GenerateTextResponseSchema,
-  GetDemographicsResponseSchema,
-  GetItineraryResponseSchema,
-  GroupCreateSchema,
-  GroupDtoSchema,
   HotelsSearchRequestSchema,
   HotelsSearchResponseSchema,
-  JoinGroupSchema,
-  ListItinerariesResponseSchema,
-  MeResponseSchema,
-  MemberInviteSchema,
   PlanRequestSchema,
   PlanResponseSchema,
   ReferenceResponseSchema,
+} from "@smart/shared/src/dto/gemini";
+import {
+  ExportPdfResponseSchema,
+  GroupCreateSchema,
+  GroupDtoSchema,
+  JoinGroupSchema,
+  MemberInviteSchema,
   ShareCreateSchema,
   ShareResponseSchema,
   SharedItineraryResponseSchema,
-  ExportPdfResponseSchema,
-  UpdateItineraryRequestSchema,
-  UpdateProfileSchema,
-  UserDemographicsSchema,
-  UserProfileSchema,
-} from "@smart/shared";
+} from "@smart/shared/src/dto/tools";
 import { ApiClientOptions, resolveApiBaseUrl } from "./env";
 import { encodePathSegment, requestJson, type FetchLike } from "./request";
 import type { ApiClient } from "./types";
