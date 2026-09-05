@@ -51,6 +51,28 @@ send and ack can duplicate an email. A malformed event is retried once, then
 dropped as poison — one bad publisher can't wedge the queue. Unknown routing
 keys are logged and acked unprocessed.
 
+## What happens when RabbitMQ restarts
+
+Nothing needs a container restart. The shared broker adapter
+(`packages/shared/src/adapters/broker.ts`) supervises the connection:
+
+```
+rabbitmq restarts ─▶ adapter notices (connection 'error'/'close')
+                         │ status → "retrying"  (mirrored into /healthz)
+                         ▼
+              reconnect with bounded backoff (1s → 2s → 4s … capped 30s)
+                         │ on success: re-assert exchange/queues/bindings,
+                         │             replay every registered consumer
+                         ▼
+                  status → "connected", events flow again
+```
+
+During the outage window publishes fail soft (callers log and drop — events
+are best-effort notifications, nothing is buffered); messages acked before the
+drop are gone, unacked ones are redelivered by RabbitMQ after reconnect. The
+retry loop in `src/index.ts` only covers the *first* connect (createBroker
+throws while RabbitMQ is absent at boot).
+
 ## Endpoints
 
 HTTP exists only for liveness — all real work is consumer-driven.

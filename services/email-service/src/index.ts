@@ -58,14 +58,22 @@ const mailer = createMailer();
  * bare-metal service start) — notifications pause and retry instead of the
  * process dying with them.
  *
- * Known limit: once connected there is no auto-reconnect (the shared broker
- * adapter exposes none) — a mid-session broker restart needs a container
- * restart; flagged in docs/TASKS.md for the next shared-touching task.
+ * Resilience: the shared broker adapter supervises the connection after this
+ * first successful connect — if RabbitMQ restarts mid-session it reconnects
+ * with bounded backoff, re-asserts the topology and replays the consumers on
+ * its own, so notifications resume without a container restart. The onStatus
+ * hook mirrors its connection state into /healthz (connected → retrying →
+ * connected); the retry loop below only covers the initial startup window
+ * (createBroker still throws when the first connect fails).
  */
 async function connectAndConsume(): Promise<void> {
   for (let attempt = 1; ; attempt++) {
     try {
-      const broker = await createBroker(defaultBrokerUrl());
+      const broker = await createBroker(defaultBrokerUrl(), {
+        onStatus: (status) => {
+          brokerStatus = status;
+        },
+      });
       try {
         await startEmailConsumers(broker, mailer);
       } catch (error) {
