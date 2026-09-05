@@ -7,13 +7,15 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { isMockModeEnabled } from "@smart/api-client";
+import { signDevToken } from "@smart/shared/src/adapters/jwt";
 import {
   AUTH_HANDOFF_TTL_SECONDS,
   AUTH_NEXT_COOKIE,
   AUTH_STATE_COOKIE,
   PKCE_VERIFIER_COOKIE,
+  SESSION_FALLBACK_TTL_SECONDS,
+  SI_SESSION_COOKIE,
   authCookieOptions,
-  authErrorPage,
   buildAuthorizeUrl,
   callbackUrl,
   createPkcePair,
@@ -21,6 +23,9 @@ import {
   readCognitoConfig,
   sanitizeNextPath,
 } from "@/lib/auth/cognito";
+
+/** The seeded auth-db user — lets /me resolve a profile during dev sign-in. */
+const LOCAL_DEV_USER_ID = "1b9472e1-a85e-43bf-9898-6f44e2b20809";
 
 export async function GET(request: NextRequest) {
   // Mock auth (Cypress/offline) has no hosted UI — sign-in is a no-op.
@@ -30,12 +35,26 @@ export async function GET(request: NextRequest) {
 
   const config = readCognitoConfig();
   if (!config) {
-    return authErrorPage(
-      "Cognito is not configured",
-      "The web app is missing COGNITO_HOSTED_UI_DOMAIN / COGNITO_CLIENT_ID. " +
-        "Create a pool with infra/cognito (see its RUNBOOK.md), or run with " +
-        "NEXT_PUBLIC_ENABLE_MOCK_AUTH=true for offline mock auth."
+    // No pool configured → we are running locally ($0 stack, Cognito never
+    // provisioned). Sign the visitor in with a dev token instead: the exact
+    // HS256 JWT the gateway and services verify under TOKEN_VERIFY_MODE=dev
+    // (shared signDevToken, JWT_DEV_SECRET). The sub matches the seeded
+    // auth-db user so /me resolves a real profile. A real deployment always
+    // sets the COGNITO_* env vars, so this branch is dev-only in practice.
+    const token = await signDevToken({
+      sub: LOCAL_DEV_USER_ID,
+      email: "testuser@example.com",
+      name: "Test User",
+    });
+    const response = NextResponse.redirect(
+      new URL(sanitizeNextPath(request.nextUrl.searchParams.get("next")), request.url)
     );
+    response.cookies.set(
+      SI_SESSION_COOKIE,
+      token,
+      authCookieOptions(SESSION_FALLBACK_TTL_SECONDS)
+    );
+    return response;
   }
 
   const { verifier, challenge } = createPkcePair();
