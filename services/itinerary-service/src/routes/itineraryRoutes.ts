@@ -96,7 +96,11 @@ export function createItineraryRouter(pool: Pool, verifier: TokenVerifier): Rout
   router.post(
     "/",
     route(async (req, res) => {
-      await requireAuth(req);
+      // Keep the verified claims: the owner's email rides on the
+      // itinerary.created event so the confirmation/reminder mail is
+      // addressed to the real recipient (absent claim → email-service's
+      // OWNER_EMAIL_FALLBACK).
+      const claims = await requireAuth(req);
       const request = parseRequestBody(CreateItineraryRequestSchema, req.body);
       const itineraryId = await withTransaction(pool, (tx) =>
         itineraryRepository.saveItineraryWithChildren(tx, request)
@@ -107,6 +111,7 @@ export function createItineraryRouter(pool: Pool, verifier: TokenVerifier): Rout
         destination: request.itinerary.destination,
         startDate: request.itinerary.startDate,
         endDate: request.itinerary.endDate,
+        ownerEmail: claims.email,
       });
       res.status(201).json(CreateItineraryResponseSchema.parse({ itineraryId }));
     })
