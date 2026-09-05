@@ -1,19 +1,21 @@
 /**
  * Base-URL resolution for the browser API client (diagram: "Clients — Web").
  *
- * The gateway (services/gateway, :8080) is reached same-origin through the
- * Next.js rewrite `/api/:path*` → gateway:8080, so the relative default `/api`
- * is correct in the browser and no origin needs to be configured. Pointing the
- * client at a different origin (e.g. a direct gateway URL in Cypress) is done
- * with `NEXT_PUBLIC_API_URL` — the ONE allowed `NEXT_PUBLIC_` var, because a
- * base URL is configuration, not a secret.
+ * The relative default `/api` is correct once apps/web forwards same-origin
+ * `/api/*` to the gateway (services/gateway, :8080) via a Next.js rewrite —
+ * each UI cutover task (T2.2+) lands the rewrite for the areas it switches
+ * over. Until an area is cut over, apps/web still serves its own legacy
+ * `/api` routes, so wiring must add the rewrite in the same change. Pointing
+ * the client at a different origin (e.g. a direct gateway URL in Cypress) is
+ * done with `NEXT_PUBLIC_API_URL` — the ONE allowed `NEXT_PUBLIC_` var,
+ * because a base URL is configuration, not a secret.
  *
  * Note: `NEXT_PUBLIC_*` vars must be read as LITERAL member accesses —
  * Next.js inlines them into the browser bundle by static replacement, which
  * a dynamic `process.env[varName]` lookup would defeat.
  */
 
-/** Same-origin default: Next.js proxies /api/* to the gateway (see next.config.ts). */
+/** Same-origin default; requires the gateway rewrite from the cutover tasks. */
 export const DEFAULT_API_BASE_URL = "/api";
 
 export interface ApiClientOptions {
