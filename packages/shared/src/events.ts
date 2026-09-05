@@ -36,6 +36,12 @@ export const ItineraryCreatedEventSchema = z
     destination: z.string(),
     startDate: dateish,
     endDate: dateish,
+    /**
+     * Where the confirmation/reminder mail goes. Optional because dev tokens
+     * may carry no email claim (AuthClaims.email is optional) — consumers
+     * fall back to OWNER_EMAIL_FALLBACK when it is absent.
+     */
+    ownerEmail: z.string().email().optional(),
   })
   .passthrough();
 export type ItineraryCreatedEvent = z.infer<typeof ItineraryCreatedEventSchema>;

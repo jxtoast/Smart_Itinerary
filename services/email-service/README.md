@@ -101,11 +101,11 @@ npm run publish-test-event --workspace @smart/email-service
 #   variants: npx tsx scripts/publish-test-event.ts [created|shared|invited] [--start 2026-10-01]
 ```
 
-## Known contract gap (flagged in docs/TASKS.md)
+## Owner email on `itinerary.created` (resolved in T1.7)
 
-`ItineraryCreatedEvent` (and therefore `ReminderDueEvent`) carries only
-`userId` — no owner address. This service must not change `packages/shared`,
-so it reads an optional passthrough `ownerEmail` field when a publisher
-includes one, and otherwise sends to `OWNER_EMAIL_FALLBACK`. Once the shared
-schema grows `ownerEmail` and itinerary-service sends it, the fallback stops
-being used with no change here.
+`ItineraryCreatedEvent` (and therefore `ReminderDueEvent`) now carries an
+optional `ownerEmail` in the shared schema, and itinerary-service fills it
+from the verified JWT claims when saving. This service reads that field with
+no change to its handler, and still falls back to `OWNER_EMAIL_FALLBACK`
+when a token carried no email claim (dev/mock tokens can omit it) — the
+fallback is the claimless-token safety net, no longer the default address.
