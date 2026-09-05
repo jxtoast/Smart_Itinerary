@@ -1,13 +1,13 @@
-import { TravelType } from "@/types/TravelType";
-import { CommonService } from "@/services/CommonService";
-import dynamic from 'next/dynamic';
-import {FactoryType } from "@/types/FactoryType";
+import EditProfileForm from "./EditProfileForm";
 
-const ItineraryForm = dynamic(() => import('@/app/profile/[userId]/edit-profile/EditProfileForm'));
-
-export default async function EditProfile() {
-  const travelData = await CommonService.fetchDataStrategy(FactoryType.TRAVEL) as TravelType[];
-
+/**
+ * Edit-profile page shell (diagram: "Clients — Web" → "Authentication
+ * Service"). It renders no data itself: since T2.4 the travel-type options
+ * and saved preferences are fetched by the form below through the API client
+ * (lib/api.ts → gateway → auth-/gemini-service), replacing the legacy
+ * server-side Supabase lookup, so this is a plain server component again.
+ */
+export default function EditProfile() {
   return (
     <div className="hero min-h-screen">
       <div className="hero-overlay bg-main-1">
@@ -16,8 +16,7 @@ export default async function EditProfile() {
         </div>
       </div>
       <div className="hero-content text-neutral-content text-center pt-16">
-        {/* Pass travelData and userId as props to the ItineraryForm */}
-        <ItineraryForm travelType={travelData}></ItineraryForm>
+        <EditProfileForm />
       </div>
     </div>
   )

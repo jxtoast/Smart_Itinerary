@@ -1,10 +1,24 @@
 "use client";
-import { UserService } from "@/services/UserService";
+
+/**
+ * Profile view page (diagram: "Clients — Web" → "Authentication Service —
+ * User Profile" + "Itinerary Service").
+ *
+ * Data flows through the typed API client (lib/api.ts) instead of the legacy
+ * direct-Supabase queries (T2.4 strangler swap): the user card reads
+ * GET /api/auth/profile + /api/auth/demographics (auth-service), the trips
+ * grid reads/DELETEs /api/itineraries/* (itinerary-service).
+ *
+ * The auth endpoints are CALLER-scoped — identity comes from the verified
+ * session JWT, not the URL — so the [userId] segment stays purely
+ * navigational (every in-app link passes the logged-in user's id). The
+ * itinerary list keeps using the URL param because its service contract
+ * takes the id explicitly (GET /api/itineraries/user/:userId).
+ */
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useParams, useRouter } from "next/navigation"; // Use useParams to get dynamic route parameters
-import { ItineraryService } from "@/services/ItineraryService";
+import { useParams, useRouter } from "next/navigation";
 import {
   FaUserAlt,
   FaEnvelope,
@@ -13,14 +27,37 @@ import {
   FaBullseye,
 } from "react-icons/fa";
 import Swal from "sweetalert2";
-import { User } from "@/types/User";
+import { getApiClient } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/api-errors";
+import type { UserProfile } from "@smart/api-client";
+import type {
+  GetDemographicsResponse,
+  ListItinerariesResponse,
+} from "@smart/shared";
+
+type ItinerarySummary = ListItinerariesResponse["itineraries"][number];
+
+/**
+ * The real list rows carry the itinerary's estimated cost as Postgres
+ * `numeric` (the pg driver delivers it as a string like "2450.00"); the mock
+ * list omits the field entirely. Normalize to a display string, or null when
+ * the row has none.
+ */
+function estimatedCostLabel(itinerary: ItinerarySummary): string | null {
+  const raw = itinerary.estimated_total_cost;
+  if (raw == null || raw === "") return null;
+  return String(raw);
+}
 
 export default function Profile() {
   const { userId } = useParams(); // Extract userId from URL params
-  const [user, setUser] = useState<User>();
-  const [itineraries, setItineraries] = useState<any[]>([]); // State for itineraries
+  const [user, setUser] = useState<UserProfile>();
+  const [itineraries, setItineraries] = useState<ItinerarySummary[]>([]);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [loading, setLoading] = useState<boolean>(true); // Loading state for fetching data
+  const [loading, setLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [demographics, setDemographics] = useState<GetDemographicsResponse | null>(null);
+  const [itinerariesError, setItinerariesError] = useState<string | null>(null);
   const router = useRouter(); // Initialize router for navigation
 
   // Helper function to format date as dd-mm-yyyy
@@ -38,22 +75,56 @@ export default function Profile() {
   };
 
   useEffect(() => {
-    const setProfile = async () => {
-      if (!userId) return;
+    if (!userId || typeof userId !== "string") return;
 
-      if (typeof userId === 'string') {
-        const userData = await UserService.getUserById(userId)
-        if (userData) {
-          setUser(userData);
-        }
-        const userItineraries = await ItineraryService.getUserItineraries(userId)
-        setItineraries(userItineraries || []);
+    const api = getApiClient();
+
+    // Profile + demographics power the user card; a failure there blanks the
+    // page, so it gets the full-width error state below.
+    const loadProfile = async () => {
+      try {
+        const [profileData, demographicsData] = await Promise.all([
+          api.auth.getProfile(),
+          api.auth.getDemographics(),
+        ]);
+        setUser(profileData);
+        setDemographics(demographicsData);
+      } catch (error) {
+        console.error("Failed to load profile:", error);
+        setLoadError(apiErrorMessage(error));
+      } finally {
+        setLoading(false); // Stop showing the spinner once the card resolved (or failed)
       }
-
-      setLoading(false); // Set loading state to false after fetching data
     };
-    setProfile();
+
+    // The trips grid is loaded separately so an itinerary-service outage
+    // degrades to "could not load itineraries" instead of blanking the page.
+    const loadItineraries = async () => {
+      try {
+        const list = await api.itineraries.listForUser(userId);
+        setItineraries(list.itineraries);
+      } catch (error) {
+        console.error("Failed to load itineraries:", error);
+        setItinerariesError(apiErrorMessage(error));
+      }
+    };
+
+    loadProfile();
+    loadItineraries();
   }, [userId]); // Fetch data again when userId changes
+
+  /**
+   * The demographics endpoint always answers (DDL defaults for a user who
+   * never saved preferences), but the legacy view hid the whole block until a
+   * row existed — mirror that by treating the all-defaults payload as
+   * "nothing saved yet".
+   */
+  const hasSavedDemographics = (saved: GetDemographicsResponse | null): boolean =>
+    saved !== null &&
+    (saved.travelType !== "" ||
+      saved.purpose !== "" ||
+      saved.minBudget != null ||
+      saved.maxBudget != null);
 
   //#region Function to handle itinerary deletion
   const redirectBacktoProfile = () => {
@@ -73,16 +144,16 @@ export default function Profile() {
       cancelButtonColor: "gray",
       confirmButtonColor: "red",
       confirmButtonText: "Yes!",
-      showLoaderOnConfirm: true, 
+      showLoaderOnConfirm: true,
       preConfirm: async () => {
         try {
-          await ItineraryService.deleteItinerary(itineraryId); // Call the delete function from ItineraryService
+          await getApiClient().itineraries.remove(itineraryId); // Cascade-deletes days/activities too
           setItineraries((prevItineraries) =>
             prevItineraries.filter((itinerary) => itinerary.id !== itineraryId)
           );
           setIsConfirmed(true); // Set confirmation state to true
         } catch (error) {
-          Swal.showValidationMessage(`Error deleting itinerary: ${error}`);
+          Swal.showValidationMessage(`Error deleting itinerary: ${apiErrorMessage(error)}`);
           console.error("Error deleting itinerary:", error);
         }
       },
@@ -114,11 +185,20 @@ export default function Profile() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-4 bg-main-1">
+        <div role="alert" className="card bg-white shadow-md w-full max-w-md p-6 text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Could not load your profile</h2>
+          <p className="text-gray-700">{loadError}</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return <p>User not found</p>;
   }
-
-  console.log("user",user)
 
   return (
     <div className="font-[family-name:var(--font-geist-sans)] flex flex-col items-center justify-center min-h-screen gap-6 p-4 bg-main-1">
@@ -176,27 +256,27 @@ export default function Profile() {
               {user.email}
             </p>
           </div>
-          {user.userDemographics && (
+          {hasSavedDemographics(demographics) && (
             <>
               <div className="flex items-center">
                 <FaSuitcase className="text-gray-500 mr-3" />
                 <p>
                   <span className="font-semibold text-gray-900">Travel Type:</span>{" "}
-                  {user.userDemographics?.travelType}
+                  {demographics?.travelType}
                 </p>
               </div>
               <div className="flex items-center">
                 <FaMoneyBillAlt className="text-gray-500 mr-3" />
                 <p>
                   <span className="font-semibold text-gray-900">Budget:</span> $
-                  {user.userDemographics?.minBudget} - ${user.userDemographics?.maxBudget}
+                  {demographics?.minBudget} - ${demographics?.maxBudget}
                 </p>
               </div>
               <div className="flex items-center">
                 <FaBullseye className="text-gray-500 mr-3" />
                 <p>
                   <span className="font-semibold text-gray-900">Preference:</span>{" "}
-                  {user.userDemographics?.purpose}
+                  {demographics?.purpose}
                 </p>
               </div>
             </>
@@ -207,7 +287,9 @@ export default function Profile() {
       {
         itineraries.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-            {itineraries.map((itinerary: any, index: number) => (
+            {itineraries.map((itinerary, index) => {
+              const cost = estimatedCostLabel(itinerary);
+              return (
               <div
                 key={itinerary.id}
                 className="card bg-main-2 shadow-lg hover:shadow-xl transition-all"
@@ -225,8 +307,13 @@ export default function Profile() {
                   </h2>
                   <p className="text-black">
                     Duration: {formatDate(itinerary.start_date)} -{" "}
-                    {formatDate(itinerary.end_date)} <br />
-                    Estimated Cost: ${itinerary.estimated_total_cost}
+                    {formatDate(itinerary.end_date)}
+                    {cost !== null && (
+                      <>
+                        <br />
+                        Estimated Cost: ${cost}
+                      </>
+                    )}
                   </p>
                   <div className="card-actions justify-end mt-4">
                     <button
@@ -244,11 +331,12 @@ export default function Profile() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="text-lg text-center text-gray-600 mt-6">
-            No itineraries available.
+            {itinerariesError ?? "No itineraries available."}
           </p>
         )
       }
