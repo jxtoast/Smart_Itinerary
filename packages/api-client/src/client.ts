@@ -27,13 +27,6 @@ import {
   UserProfileSchema,
 } from "@smart/shared/src/dto/auth";
 import {
-  GetDemographicsResponseSchema,
-  MeResponseSchema,
-  UpdateProfileSchema,
-  UserDemographicsSchema,
-  UserProfileSchema,
-} from "@smart/shared/src/dto/auth";
-import {
   CreateItineraryRequestSchema,
   CreateItineraryResponseSchema,
   GetItineraryResponseSchema,
