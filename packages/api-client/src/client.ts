@@ -13,35 +13,45 @@
  * service-mounted paths are exactly what this client calls.
  */
 
+// Schemas are imported from the dto modules directly, NOT the @smart/shared
+// root index: the root re-exports every adapter (nodemailer, amqplib, pg, …),
+// which cannot be bundled for the browser. Deep paths keep this client (and
+// every page importing it) browser-safe.
+import {
+  GetDemographicsResponseSchema,
+  MeResponseSchema,
+  UpdateProfileSchema,
+  UserDemographicsSchema,
+  UserProfileSchema,
+} from "@smart/shared/src/dto/auth";
 import {
   CreateItineraryRequestSchema,
   CreateItineraryResponseSchema,
+  GetItineraryResponseSchema,
+  ListItinerariesResponseSchema,
+  UpdateItineraryRequestSchema,
+} from "@smart/shared/src/dto/itineraries";
+import {
   FlightsSearchRequestSchema,
   FlightsSearchResponseSchema,
   GenerateItineraryRequestSchema,
   GenerateTextResponseSchema,
-  GetDemographicsResponseSchema,
-  GetItineraryResponseSchema,
-  GroupCreateSchema,
-  GroupDtoSchema,
   HotelsSearchRequestSchema,
   HotelsSearchResponseSchema,
-  JoinGroupSchema,
-  ListItinerariesResponseSchema,
-  MeResponseSchema,
-  MemberInviteSchema,
   PlanRequestSchema,
   PlanResponseSchema,
   ReferenceResponseSchema,
+} from "@smart/shared/src/dto/gemini";
+import {
+  ExportPdfResponseSchema,
+  GroupCreateSchema,
+  GroupDtoSchema,
+  JoinGroupSchema,
+  MemberInviteSchema,
   ShareCreateSchema,
   ShareResponseSchema,
   SharedItineraryResponseSchema,
-  ExportPdfResponseSchema,
-  UpdateItineraryRequestSchema,
-  UpdateProfileSchema,
-  UserDemographicsSchema,
-  UserProfileSchema,
-} from "@smart/shared";
+} from "@smart/shared/src/dto/tools";
 import { ApiClientOptions, resolveApiBaseUrl } from "./env";
 import { encodePathSegment, requestJson, type FetchLike } from "./request";
 import type { ApiClient } from "./types";

@@ -1,20 +1,71 @@
-'use client'; // This makes this file run on the client side
+'use client';
 
+/**
+ * Edit-profile form (diagram: "Clients — Web" → "Authentication Service").
+ *
+ * Loads the caller's saved travel preferences with GET /api/auth/demographics
+ * and the "who are you travelling with" options with
+ * GET /api/gemini/reference/travel-types; Save issues
+ * PUT /api/auth/demographics (a full replace). Both hop through the gateway
+ * via the typed client (lib/api.ts) — the legacy version read and wrote the
+ * Supabase tables directly (T2.4 swap).
+ *
+ * Identity comes from AuthContext like on every other page; the demographics
+ * endpoints need no id because they are caller-scoped (verified session JWT).
+ */
 import { useEffect, FormEvent, useState } from 'react';
-import { TravelType } from "@/types/TravelType";
-import { UserDemographics } from "@/types/UserDemographics";
-import { logFormData } from '@/utils/logger';
-import { UserService } from "@/services/UserService";
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { logFormData } from '@/utils/logger';
+import { getApiClient } from '@/lib/api';
+import { apiErrorMessage } from '@/lib/api-errors';
+import type { UpdateDemographics } from '@smart/shared';
 
-interface ItineraryFormProps {
-  travelType: TravelType[];
+/** The travel-type reference fields this form renders (gemini-service rows). */
+interface TravelTypeOption {
+  type_name: string;
+  type_code: string;
+  number_of_people: string;
 }
 
-export default function ItineraryForm({ travelType }: ItineraryFormProps) {
+/**
+ * The reference contract types its items as unknown[] (raw gemini-db rows), so
+ * narrow instead of trusting the shape — a malformed row is dropped rather
+ * than crashing the form.
+ */
+function toTravelTypeOptions(items: readonly unknown[]): TravelTypeOption[] {
+  return items.filter((item): item is TravelTypeOption => {
+    if (typeof item !== "object" || item === null) return false;
+    const row = item as Record<string, unknown>;
+    return (
+      typeof row.type_name === "string" &&
+      typeof row.type_code === "string" &&
+      typeof row.number_of_people === "string"
+    );
+  });
+}
+
+/** Parse a budget input value; anything non-numeric stays "not set" (null). */
+function toBudget(raw: FormDataEntryValue | null): number | null {
+  const parsed = Number.parseInt(String(raw ?? ""), 10);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+/**
+ * The auth DB stores the party size as one INTEGER, but the reference rows
+ * use ranges ("3-5"). Store the range's first number; when nothing is
+ * selected the field is omitted, which the service stores as NULL ("not set").
+ */
+function toPartySize(raw: string): number | undefined {
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+export default function EditProfileForm() {
+  const { user } = useAuth(); // Session identity (AuthContext), as on every page
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [travelOptions, setTravelOptions] = useState<TravelTypeOption[]>([]);
   const [minBudget, setMinBudget] = useState<number | null>(null);
   const [maxBudget, setMaxBudget] = useState<number | null>(null);
   const [travelGroup, setTravelGroup] = useState<{ type_name: string; number_of_people: string }>({
@@ -25,25 +76,37 @@ export default function ItineraryForm({ travelType }: ItineraryFormProps) {
   const router = useRouter(); // Initialize the useRouter hook
 
   useEffect(() => {
-    const setProfile = async () => {
-      const userSession = await UserService.getUserSession()
-      if (userSession && userSession.id) {
-        setUser(userSession);
-        const userDemographics = await UserService.getUserDemographicsById(userSession.id)
+    const loadProfile = async () => {
+      try {
+        const api = getApiClient();
+        const [demographics, travelTypes] = await Promise.all([
+          api.auth.getDemographics(),
+          api.gemini.listTravelTypes(),
+        ]);
+        const options = toTravelTypeOptions(travelTypes.items);
+        setTravelOptions(options);
 
-        if (userDemographics) {
-          setMinBudget(userDemographics.minBudget);
-          setMaxBudget(userDemographics.maxBudget);
-          const purpose = userDemographics.purpose.split(",");
-          setPurpose(purpose); 
-          setTravelGroup({
-            type_name: userDemographics.travelType,
-            number_of_people: userDemographics.numberOfPeople,
-          });
-        }
+        // Prefill from the saved row; a fresh user's payload is all defaults
+        // ("", null), which lands on exactly the empty initial states below.
+        setMinBudget(demographics.minBudget ?? null);
+        setMaxBudget(demographics.maxBudget ?? null);
+        setPurpose(demographics.purpose ? demographics.purpose.split(",") : []);
+        // Party size: prefer the selected travel type's own value so the
+        // payload matches what the user sees; unmatched stored types keep
+        // the "not set" default instead of a stale number.
+        const savedType = options.find(
+          (option) => option.type_name === demographics.travelType
+        );
+        setTravelGroup({
+          type_name: demographics.travelType,
+          number_of_people: savedType?.number_of_people ?? "1",
+        });
+      } catch (loadError) {
+        console.error("Failed to load profile preferences:", loadError);
+        setError(apiErrorMessage(loadError));
       }
     };
-    setProfile();
+    loadProfile();
   }, []);
 
 
@@ -62,35 +125,32 @@ export default function ItineraryForm({ travelType }: ItineraryFormProps) {
     logFormData(event);
 
     const formData = new FormData(event.target as HTMLFormElement);
-    const minBudget = formData.get('min_budget');
-    const maxBudget = formData.get('max_budget');
-
 
     try {
       setIsLoading(true);
 
-      // Get the authenticated user's ID
-      if (!user) {
+      // The save itself is caller-scoped; the session user's id is only
+      // needed for the redirect back to the profile page.
+      if (!user?.id) {
         setError("You must be logged in to save data.");
         return;
       }
 
-      const newUserDemographics: UserDemographics = {
-        userId: user.id,
-        minBudget: minBudget ? parseInt(minBudget as string, 10) : null,
-        maxBudget: maxBudget ? parseInt(maxBudget as string, 10) : null,
+      const newUserDemographics: UpdateDemographics = {
+        minBudget: toBudget(formData.get('min_budget')),
+        maxBudget: toBudget(formData.get('max_budget')),
         travelType: travelGroup.type_name,
         purpose: purpose ? purpose.join(",") : " ",
-        numberOfPeople: travelGroup.number_of_people
+        numberOfPeople: toPartySize(travelGroup.number_of_people)
       }
 
-      await UserService.updateUserDemographics(newUserDemographics)
+      await getApiClient().auth.updateDemographics(newUserDemographics)
 
 
       // Redirect to the profile page
       router.push(`/profile/${user.id}`);
-    } catch (error: any) {
-      setError(error.message);
+    } catch (submitError: unknown) {
+      setError(apiErrorMessage(submitError));
     } finally {
       setIsLoading(false);
     }
@@ -169,8 +229,8 @@ export default function ItineraryForm({ travelType }: ItineraryFormProps) {
             </svg>
           </label>
           <div className="grid grid-cols-2 gap-4">
-            {travelType &&
-              travelType.map((travel) => (
+            {travelOptions &&
+              travelOptions.map((travel) => (
                 <label
                   key={travel.type_code}
                   className="label cursor-pointer"

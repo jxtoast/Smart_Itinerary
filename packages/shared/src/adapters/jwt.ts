@@ -77,8 +77,35 @@ export async function extractToken(req: AuthenticatedRequestLike): Promise<strin
   if (typeof header === "string" && header.toLowerCase().startsWith("bearer ")) {
     return header.slice(7).trim();
   }
-  const cookie = req.cookies?.[AUTH_COOKIE_NAME];
+  // req.cookies only exists when a service mounts cookie-parser; the gateway
+  // does, but the downstream services must not need that extra dependency to
+  // re-verify the session (conventions §6). Fall back to the raw header.
+  const cookie = req.cookies?.[AUTH_COOKIE_NAME] ?? readSessionCookie(req.headers.cookie);
   return cookie ?? null;
+}
+
+/**
+ * Pull `si_session` out of a raw `Cookie` header ("a=1; si_session=<jwt>").
+ * Only the session cookie's value is of interest here, so a tiny targeted
+ * parse beats requiring cookie-parser in every service.
+ */
+function readSessionCookie(rawHeader: string | string[] | undefined): string | undefined {
+  if (typeof rawHeader !== "string") return undefined;
+  for (const pair of rawHeader.split(";")) {
+    const separator = pair.indexOf("=");
+    if (separator === -1) continue;
+    if (pair.slice(0, separator).trim() !== AUTH_COOKIE_NAME) continue;
+    const rawValue = pair.slice(separator + 1).trim();
+    // Browsers percent-encode cookie values; JWTs use only base64url
+    // characters, but decode anyway for robustness (a malformed escape must
+    // not crash the request — fall back to the raw value).
+    try {
+      return decodeURIComponent(rawValue);
+    } catch {
+      return rawValue;
+    }
+  }
+  return undefined;
 }
 
 /** Throws a 401-shaped error when the request carries no valid token. */
