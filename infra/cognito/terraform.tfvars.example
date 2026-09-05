@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars and fill in — see RUNBOOK.md.
+# terraform.tfvars is gitignored (infra/cognito/.gitignore): the Google client
+# secret is a real credential, and Terraform's state file picks it up too.
+
+aws_region              = "ap-southeast-1"
+pool_name               = "smart-itinerary-users"
+hosted_ui_domain_prefix = "smart-itinerary-CHANGE-ME" # globally unique — use your initials
+
+google_client_id     = "PASTE_GOOGLE_OAUTH_CLIENT_ID"
+google_client_secret = "PASTE_GOOGLE_OAUTH_CLIENT_SECRET"
+
+# Defaults match local dev (web on localhost:3000). Add your deployed origins
+# when you have them, e.g.:
+# callback_urls = ["http://localhost:3000/auth/callback", "https://my-demo.example.com/auth/callback"]
+# logout_urls   = ["http://localhost:3000", "https://my-demo.example.com"]
