@@ -1,6 +1,6 @@
 import { ItineraryTimelineProps } from "./ItineraryTimelineProps";
 import { getApiClient } from "@/lib/api";
-import { apiErrorMessage } from "@/lib/apiErrors";
+import { describeApiClientError } from "@/lib/apiError";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -190,7 +190,7 @@ const sortedFlightDetails = useMemo(() => {
       router.push(`/profile/${user.id}`);
     } catch (error) {
       console.error("Error saving itinerary:", error);
-      Swal.fire({ icon: "error", title: "Save failed", text: apiErrorMessage(error, "Your itinerary could not be saved.") });
+      Swal.fire({ icon: "error", title: "Save failed", text: describeApiClientError(error) });
     } finally {
       setLoading(false);
     }
@@ -221,7 +221,7 @@ const sortedFlightDetails = useMemo(() => {
       router.push(`/profile/${user.id}`);
     } catch (error) {
       console.error("Error updating itinerary:", error);
-      Swal.fire({ icon: "error", title: "Update failed", text: apiErrorMessage(error, "Your itinerary could not be updated.") });
+      Swal.fire({ icon: "error", title: "Update failed", text: describeApiClientError(error) });
     } finally {
       setLoading(false);
     }
@@ -463,7 +463,7 @@ const sortedFlightDetails = useMemo(() => {
                       <Image
                         width={360}
                         height={360}
-                        src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/PNY_Exterior_with_Rolls_Royce.jpg/800px-PNY_Exterior_with_Rolls_Royce.jpg"
+                        src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/PNY_Exterior_with_Rolls_Royce.jpg/960px-PNY_Exterior_with_Rolls_Royce.jpg"
                         alt={item.name}
                         style={{ width: "auto", height: "auto" }}
                       />
@@ -659,7 +659,7 @@ const sortedFlightDetails = useMemo(() => {
                                   <Image
                                     width={360}
                                     height={180}
-                                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Sydney_%28AU%29%2C_Bondi_Beach_--_2019_--_2354.jpg/640px-Sydney_%28AU%29%2C_Bondi_Beach_--_2019_--_2354.jpg"
+                                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Sydney_%28AU%29%2C_Bondi_Beach_--_2019_--_2354.jpg/960px-Sydney_%28AU%29%2C_Bondi_Beach_--_2019_--_2354.jpg"
                                     alt={each.name}
                                     style={{ width: "auto", height: "auto" }}
                                   />

@@ -7,9 +7,6 @@
     "packages/*",
     "services/*"
   ],
-  "overrides": {
-    "@supabase/supabase-js": "2.48.1"
-  },
   "scripts": {
     "dev:web": "npm run dev --workspace @smart/web",
     "build": "npm run build --if-present --workspaces",

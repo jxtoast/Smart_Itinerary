@@ -8,7 +8,7 @@ import { FlightDisplayDetails } from '@/types/FlightDisplayDetails'
 import { WeatherForecast } from '@/types/WeatherForecast'
 import { getApiClient } from "@/lib/api";
 import { ApiClientError } from "@smart/api-client";
-import { FlightSearchCriteriaBuilder } from "@/services/FlightSearchCriteriaBuilder";
+import { FlightSearchCriteriaBuilder } from "@/lib/FlightSearchCriteriaBuilder";
 
 export default function ItineraryPage({
   searchParams,

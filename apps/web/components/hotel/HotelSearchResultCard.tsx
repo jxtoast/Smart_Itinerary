@@ -3,7 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Hotel } from "@/types/Hotel";
 import type { CreateItineraryRequest } from "@smart/shared";
 import { getApiClient } from "@/lib/api";
-import { apiErrorMessage } from "@/lib/apiErrors";
+import { describeApiClientError } from "@/lib/apiError";
 import useHotelStore from "@/store/hotelStore";
 import itineraryStore from "@/store/itineraryStore";
 import Image from "next/image";
@@ -86,7 +86,7 @@ export default function HotelSearchResultCard({
             return itineraryId;
           } catch (error) {
             Swal.showValidationMessage(
-              `Error saving hotel to itinerary: ${apiErrorMessage(error, "please try again.")}`
+              `Error saving hotel to itinerary: ${describeApiClientError(error)}`
             );
             console.error("Error saving hotel to itinerary:", error);
           }
@@ -105,6 +105,10 @@ export default function HotelSearchResultCard({
               Swal.showLoading();
             },
           }).then((result) => {
+            // The save above already required a session (the itinerary is
+            // user-scoped), so the user can only be null if they signed out
+            // mid-flow — there is then no itinerary page to return to.
+            if (!user) return;
             router.push(`/itinerary/${user.id}/${itineraryId}`);
           });
         }

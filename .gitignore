@@ -11,9 +11,14 @@ dist/
 
 # testing
 coverage/
+# Cypress artifacts land next to the specs (apps/web/cypress), so the rules
+# must be anchored there — a bare cypress/… pattern only matches repo-root.
 cypress/screenshots/
 cypress/downloads/
 cypress/videos/
+apps/web/cypress/screenshots/
+apps/web/cypress/downloads/
+apps/web/cypress/videos/
 
 # misc
 .DS_Store
