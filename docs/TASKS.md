@@ -302,7 +302,7 @@ Known cosmetic debt, tracked for T3.4: stale Wikimedia/seed image URLs render as
 | ID | Task | Depends | Branch | Status | Notes |
 |---|---|---|---|---|---|
 | T3.1 | CI/CD update: monorepo paths, `docker compose build` + smoke-test job, Cypress e2e against compose (mock auth), keep Aikido SAST | T0.1, T0.2 | | todo | |
-| T3.2 | **Terraform AWS scaffold** (NOT applied): vpc-lite, ECR, ECS Fargate ×6 (gateway desired_count=2), RDS ×4 `db.t4g.micro`, S3, Secrets Manager, Cognito, ALB (+optional Route53/WAF), CloudWatch; apply runbook + cost estimate README | T0.3 | | todo | `terraform validate` must pass |
+| T3.2 | **Terraform AWS scaffold** (NOT applied): vpc-lite, ECR, ECS Fargate ×6 (gateway desired_count=2), RDS ×4 `db.t4g.micro`, S3, Secrets Manager, Cognito, ALB (+optional Route53/WAF), CloudWatch; apply runbook + cost estimate README | T0.3 | `task/t3.2-terraform-aws` | **in-progress** | `terraform validate` must pass |
 | T3.3 | Docs: `docs/ARCHITECTURE.md` — mermaid diagram mirroring the image, diagram↔repo↔AWS mapping table, event catalogue, local runbook, AWS migration runbook | T0.1 | | todo | |
 | T3.4 | Cleanup: remove legacy browser service classes, `lib/supabase`, `app/api/*` stubs, secret `NEXT_PUBLIC_*` vars; root `.env.example`; README rewrite | T2.2–T2.5 | | todo | |
 
