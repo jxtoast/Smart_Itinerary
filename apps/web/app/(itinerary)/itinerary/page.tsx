@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { use } from 'react'
 import ItineraryTimeline from "./ItineraryTimeline";
 import { Itinerary } from '@/types/Itinerary';
@@ -22,13 +22,23 @@ export default function ItineraryPage({
   const [weatherForecast, setWeatherForecast] = useState<WeatherForecast[] | null>(null);
   const [isGeneratedItinerary, setIsGeneratedItinerary] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  /**
+   * Single-flight guard: one page mount may start at most ONE plan request.
+   * In dev, React StrictMode deliberately invokes every effect twice on
+   * mount — the `itinerary` state check below cannot catch that (state has
+   * not updated yet when the second invocation runs), so without this ref a
+   * single Generate click fires /gemini/plan twice, doubling the free-tier
+   * Gemini quota burn and racing two 25s requests through the dev proxy.
+   */
+  const generationStartedRef = useRef(false);
 
   const { data } = use(searchParams)
 
   useEffect(() => {
-    if (!data || itinerary) {
+    if (!data || itinerary || generationStartedRef.current) {
       return;
     }
+    generationStartedRef.current = true;
     const fetchItinerary = async () => {
       setLoading(true);
       try {
@@ -84,14 +94,22 @@ export default function ItineraryPage({
         }
       } catch (error) {
         console.error("Error generating itinerary:", error);
-        // The page keeps its generic error box; two gateway answers are
-        // worth spelling out to the reader: 503 (AI keys not configured
-        // server-side) and 504 (real generation exceeded the gateway's
-        // ceiling — a retry usually succeeds).
+        // The page keeps its generic error box; the answers worth spelling
+        // out to the reader: 503 (AI keys not configured server-side), 504
+        // (real generation exceeded the gateway's ceiling — a retry usually
+        // succeeds), and an interrupted hop between the browser and the
+        // gateway (network failure, or a 500 with no JSON error body — the
+        // dev server's proxy answering for a dropped connection, since the
+        // gateway/services always send a JSON `{ error }` body on 500s).
         if (error instanceof ApiClientError && error.status === 503) {
           setErrorMessage("AI generation is not configured on the server yet.");
         } else if (error instanceof ApiClientError && error.status === 504) {
           setErrorMessage("The AI took too long to generate this trip. Please try again.");
+        } else if (
+          error instanceof ApiClientError &&
+          (error.isNetworkFailure || (error.status === 500 && error.body === undefined))
+        ) {
+          setErrorMessage("The connection dropped while generating. Please try again.");
         }
       } finally {
         setLoading(false);
