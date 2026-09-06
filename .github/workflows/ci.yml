@@ -1,0 +1,254 @@
+# Smart Itinerary — CI (T3.1).
+#
+# One workflow replacing the monolith-era production.yaml + preview.yaml.
+# What changed, and why:
+#
+#   * Triggers now cover the re-platform: push to `microservices-develop`
+#     (the integration branch) and to every `task/**` branch, plus
+#     pull_request to `main`. The old workflows fired on main/develop only,
+#     so CI never ran once on the re-platform work.
+#   * Jobs target the monorepo: typecheck + contract smokes across all npm
+#     workspaces, a production build of @smart/web, a full docker compose
+#     smoke (build → up → gateway /healthz aggregation → down), and the
+#     Cypress component + e2e suites in mock mode. This mirrors the runtime
+#     the app actually ships on: compose locally, ECS per the target
+#     architecture (docs/TASKS.md §1.2 CI/CD row).
+#   * The Vercel deploy/preview jobs are RETIRED on purpose: the frontend is
+#     no longer a standalone Vercel app — it talks to the gateway
+#     (next.config.ts rewrite → services/gateway), and a Vercel deployment
+#     would ship a UI pointing at a gateway that has no public existence.
+#     The repo's Vercel secrets are left untouched (not ours to manage);
+#     AWS-side deploys (ECR/ECS) come later via the Terraform scaffold (T3.2).
+#   * The Aikido SAST job is kept exactly as it was (same action, same
+#     options, same two repo secrets).
+#
+# Legacy frontend env: the monolith pages still in apps/web fail `next build`
+# without Supabase env (their cleanup is T3.4). CI passes obvious placeholder
+# values instead of injecting the legacy NEXT_PUBLIC_* repo secrets — the
+# Cypress suites run in mock mode and never contact Supabase or Gemini, and
+# placeholders are enough for prerendering (see apps/web/.env.example).
+
+name: CI
+
+on:
+  push:
+    branches:
+      - microservices-develop
+      - "task/**"
+  pull_request:
+    branches:
+      - main
+  # Manual trigger from the Actions tab — the escape hatch if repo Actions
+  # were disabled when this landed (no run on the original push).
+  workflow_dispatch:
+
+# Fresh pushes to the same branch supersede the previous run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Read-only token for the workflow itself; the Aikido job brings its own PAT
+# (GH_SMART_TOKEN) for anything privileged.
+permissions:
+  contents: read
+
+env:
+  # Placeholders for the legacy prerender env (see header comment). Values
+  # are deliberately fake — nothing in CI contacts Supabase.
+  NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
+
+jobs:
+  # ---------------------------------------------------------------- job 1
+  # Static gates that need no runtime: one npm ci, then typecheck across all
+  # 9 workspaces and the two contract smokes (@smart/shared zod/events/
+  # adapters, @smart/api-client wire behaviour).
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+
+      - name: Install workspace dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck every workspace
+        run: npm run typecheck
+
+      - name: Shared-package contract smoke
+        run: npm run smoke -w @smart/shared
+
+      - name: api-client contract smoke
+        run: npm run smoke -w @smart/api-client
+
+  # ---------------------------------------------------------------- job 2
+  # Production build of the web app — the same build the compose `web` image
+  # and a future ECS image would run.
+  build-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+
+      - name: Install workspace dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build @smart/web
+        run: npm run build --workspace @smart/web
+
+  # ---------------------------------------------------------------- job 3
+  # Full-stack smoke on a real Docker runner: build every service image,
+  # start the compose stack (4× postgres, rabbitmq, minio, mailpit, gateway
+  # + 5 services), then poll the gateway's aggregated /healthz until it
+  # reports status "ok" — which only happens when ALL four service upstreams
+  # (auth, itinerary, gemini, tools) answer. No API keys are needed: without
+  # Gemini/Amadeus keys the AI endpoints answer 503 by design, which does not
+  # affect health.
+  compose-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build all service images
+        run: docker compose build
+
+      - name: Start the full stack
+        run: docker compose up -d
+
+      - name: Wait for gateway /healthz to report every upstream up
+        run: |
+          # 60 attempts × 5s ≈ 5 min of grace on top of compose's own
+          # service healthchecks; the body of every probe is printed so a
+          # timeout shows exactly which upstream was down.
+          for attempt in $(seq 1 60); do
+            if body=$(curl -fsS http://localhost:8080/healthz 2>/dev/null); then
+              status=$(printf '%s' "$body" | jq -r '.status')
+              if [ "$status" = "ok" ]; then
+                echo "gateway healthy after attempt ${attempt}:"
+                printf '%s' "$body" | jq .
+                exit 0
+              fi
+              echo "attempt ${attempt}: status=${status}"
+            else
+              echo "attempt ${attempt}: gateway not answering yet"
+            fi
+            sleep 5
+          done
+          echo "::error::gateway /healthz never reported status=ok — last body:"
+          curl -sS http://localhost:8080/healthz || true
+          exit 1
+
+      - name: Dump compose logs
+        if: always()
+        run: docker compose logs --no-color --timestamps > compose-logs.txt || true
+
+      - name: Upload compose logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-logs
+          path: compose-logs.txt
+
+      - name: Tear down the stack
+        if: always()
+        run: docker compose down -v --remove-orphans
+
+  # ---------------------------------------------------------------- job 4
+  # Cypress, mock mode (NEXT_PUBLIC_ENABLE_MOCK_AUTH=true). That flag is a
+  # BUILD-time switch — Next inlines NEXT_PUBLIC_* into the browser bundle —
+  # so it must be set in the environment before `next build`, which is why
+  # this job owns its env block instead of reusing build-web's.
+  cypress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_ENABLE_MOCK_AUTH: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+
+      - name: Install workspace dependencies
+        run: npm ci --no-audit --no-fund
+
+      # Component tests boot their own dev server — no app to start. The
+      # --spec list is CI-owned scope, not an apps/web change: the three
+      # suites it omits (Itinerary/Profile/Weather .cy.tsx) are monolith-era
+      # LIVE-INTEGRATION specs — they call the real Supabase project and the
+      # real Gemini API with no stubs and no mock branch, so they cannot pass
+      # under any CI environment (they fail byte-identically on a pristine
+      # microservices-develop checkout too). They test legacy service classes
+      # that the T3.4 cleanup deletes outright.
+      - name: Cypress component tests (self-contained suites)
+        run: >-
+          npx cypress run --component --spec
+          "cypress/component/CountrySearch.cy.tsx,cypress/component/Flights.cy.tsx,cypress/component/HomeCarousel.cy.tsx"
+        working-directory: apps/web
+
+      # The component dev server leaves Turbopack/dev artifacts in apps/web/.next
+      # that `next build` does not fully clean — serving the resulting hybrid
+      # 500s on server actions and silently breaks client hydration (found in
+      # local verification: e2e went 6-of-8 red until .next was wiped between
+      # the two suites). Wipe it so the e2e build below is from scratch.
+      - name: Clear .next before the e2e production build
+        run: rm -rf apps/web/.next
+
+      # E2E against the production server (`next build` → `next start`).
+      # install: false — dependencies were installed at the workspace root
+      # above (apps/web has no lockfile of its own).
+      - name: Cypress e2e tests
+        uses: cypress-io/github-action@a55856e0e961f64708c68ddcb38fba233d164ed8 # v6
+        with:
+          working-directory: apps/web
+          install: false
+          build: npm run build
+          start: npm run start
+          wait-on: "http://localhost:3000"
+          wait-on-timeout: 120
+          command: npm run e2e:headless
+
+      - name: Upload cypress screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-screenshots
+          path: apps/web/cypress/screenshots
+
+  # ---------------------------------------------------------------- job 5
+  # Aikido SAST — carried over unchanged from the retired production.yaml
+  # (same action version, same scan options, same repo secrets).
+  sast:
+    needs: [cypress]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect new vulnerabilities
+        uses: AikidoSec/github-actions-workflow@v1.0.13
+        with:
+          secret-key: ${{ secrets.AIKIDO_SECRET_KEY }}
+          fail-on-timeout: true
+          fail-on-dependency-scan: true
+          fail-on-sast-scan: false
+          fail-on-iac-scan: false
+          minimum-severity: "CRITICAL"
+          timeout-seconds: 180
+          post-scan-status-comment: "off"
+          post-sast-review-comments: "off"
+          github-token: ${{ secrets.GH_SMART_TOKEN }}

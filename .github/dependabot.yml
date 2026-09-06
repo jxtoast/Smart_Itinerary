@@ -1,0 +1,58 @@
+# Dependabot — update feeds only (T3.1). This file configures WHERE Dependabot
+# looks; it does not bump anything by itself. PRs it opens are reviewed like
+# any other change.
+#
+# npm: the whole monorepo is ONE npm project (workspaces declared in the root
+# package.json, single lockfile at the root), so the root directory covers
+# apps/*, packages/* and services/*.
+#
+# docker: one entry per service image — each services/<name>/Dockerfile pins
+# its base image (node:20-alpine) and Dependabot tracks that base per
+# directory.
+#
+# Deliberately out of scope: mass dependency upgrades. The supabase-js pin
+# (2.48.1, root package.json overrides) must stay — see docs/TASKS.md T0.1.
+
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: services/gateway
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: docker
+    directory: services/auth-service
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: docker
+    directory: services/itinerary-service
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: docker
+    directory: services/gemini-service
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: docker
+    directory: services/tools-service
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: docker
+    directory: services/email-service
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
