@@ -186,17 +186,18 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       # Component tests boot their own dev server — no app to start. The
-      # --spec list is CI-owned scope, not an apps/web change: the three
-      # suites it omits (Itinerary/Profile/Weather .cy.tsx) are monolith-era
-      # LIVE-INTEGRATION specs — they call the real Supabase project and the
-      # real Gemini API with no stubs and no mock branch, so they cannot pass
-      # under any CI environment (they fail byte-identically on a pristine
-      # microservices-develop checkout too). They test legacy service classes
-      # that the T3.4 cleanup deletes outright.
+      # --spec list is CI-owned scope, not an apps/web change: the four
+      # suites it omits (Flights/Itinerary/Profile/Weather .cy.tsx) were
+      # monolith-era LIVE-INTEGRATION specs — they called the real Supabase
+      # project and the real Gemini API with no stubs and no mock branch, so
+      # they could not pass under any CI environment (they failed
+      # byte-identically on a pristine microservices-develop checkout too).
+      # They tested legacy service classes that the T3.4 cleanup has since
+      # deleted outright, specs included.
       - name: Cypress component tests (self-contained suites)
         run: >-
           npx cypress run --component --spec
-          "cypress/component/CountrySearch.cy.tsx,cypress/component/Flights.cy.tsx,cypress/component/HomeCarousel.cy.tsx"
+          "cypress/component/CountrySearch.cy.tsx,cypress/component/HomeCarousel.cy.tsx"
         working-directory: apps/web
 
       # The component dev server leaves Turbopack/dev artifacts in apps/web/.next
