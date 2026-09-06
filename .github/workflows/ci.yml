@@ -38,6 +38,9 @@ on:
   pull_request:
     branches:
       - main
+  # Manual trigger from the Actions tab — the escape hatch if repo Actions
+  # were disabled when this landed (no run on the original push).
+  workflow_dispatch:
 
 # Fresh pushes to the same branch supersede the previous run.
 concurrency:
