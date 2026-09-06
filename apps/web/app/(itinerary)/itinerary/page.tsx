@@ -81,6 +81,14 @@ export default function ItineraryPage({
                 },
                 accommodation: generated.accommodation ?? [],
               });
+            } else {
+              // A 200 whose plan is null means the AI generation itself
+              // failed server-side (quota, safety block) — the request did
+              // NOT fail, so no catch branch runs. Spell that out; the
+              // generic box below reads like a network bug when it isn't.
+              setErrorMessage(
+                "The AI returned no plan. On the free tier this is usually the day's generation quota being used up — try again after the daily reset, or switch to a different API key."
+              );
             }
             if (results.weatherData) {
               const weather = results.weatherData as WeatherForecast | WeatherForecast[];
