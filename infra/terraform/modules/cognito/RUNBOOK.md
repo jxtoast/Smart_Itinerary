@@ -6,6 +6,11 @@ lead-only: the Terraform here is **never applied by CI or docker-compose** —
 you run it by hand when you want a real pool. Budget ~10 minutes of active
 work plus a couple of minutes of `terraform apply`.
 
+> As of T3.2 this is a **module of the `infra/terraform` root stack**, not a
+> standalone directory — apply/destroy commands run against `infra/terraform`
+> and create the pool together with everything else (apply order in
+> `infra/terraform/README.md`). The resources and steps below are unchanged.
+
 ---
 
 ## What this creates
@@ -55,16 +60,18 @@ Every service already knows how to verify the resulting JWTs —
 ## Step 2 — create the pool (~2 min of your time, `apply` itself ~2 min)
 
 ```bash
-cd infra/cognito
+cd infra/terraform
 cp terraform.tfvars.example terraform.tfvars
 # edit terraform.tfvars: Google client id/secret + a globally unique
-# hosted_ui_domain_prefix (e.g. smart-itinerary-jt)
+# hosted_ui_domain_prefix (e.g. smart-itinerary-jt) + the AWS inputs the
+# root stack needs (see ../../README.md)
 terraform init      # downloads the AWS provider (~1 min, once)
-terraform plan      # review: 4 resources to add
+terraform plan      # review: the pool arrives with the rest of the stack
 terraform apply     # type yes
 ```
 
-Note the outputs — you will paste them in step 4:
+Note the outputs — `terraform output` after apply; you will paste them in
+step 4 (the Cognito ones are surfaced at the root as `cognito_*`):
 
 ```
 issuer              = https://cognito-idp.<region>.amazonaws.com/<pool-id>
@@ -135,8 +142,8 @@ Verify (with the stack running):
 Tear down (**this is what keeps the bill at $0**):
 
 ```bash
-cd infra/cognito
-terraform destroy    # type yes
+cd infra/terraform
+terraform destroy    # type yes — tears down the whole stack, pool included
 ```
 
 Then revert the step-4 env lines. Keep `terraform.tfvars` (gitignored) for

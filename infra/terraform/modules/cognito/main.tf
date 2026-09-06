@@ -1,7 +1,7 @@
-# Amazon Cognito user pool for Smart Itinerary (diagram: "Amazon Cognito").
+# Amazon Cognito module for Smart Itinerary (diagram: "Amazon Cognito").
 # One pool, Google as the only federated identity provider, and a public
 # (PKCE) app client for the web app. Costs $0 while it exists (see the free
-# tier note in RUNBOOK.md) — destroy it after demos.
+# tier note in RUNBOOK.md) — destroy the stack after demos.
 
 locals {
   # The issuer every service verifies JWTs against
