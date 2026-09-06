@@ -4,7 +4,7 @@ import {
   TransactionExecutor,
   query,
   queryOne,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 
 /**
  * Itinerary Service repositories — every SQL statement of this service lives

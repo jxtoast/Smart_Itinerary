@@ -6,7 +6,7 @@ import {
   env,
   envInt,
   errorHandler,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 import { createItineraryRouter } from "./routes/itineraryRoutes";
 import { cookieMiddleware } from "./cookies";
 import { closeBroker } from "./itineraryCreatedPublisher";

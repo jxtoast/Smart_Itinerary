@@ -5,26 +5,27 @@
  *   - `createMockApiClient()` → canned in-memory data (offline / Cypress).
  *
  * Every request/response type comes from the shared zod DTOs
- * (`@smart/shared/src/dto/*`) so client and services can never drift apart.
+ * (`@smart/shared/src/dto/*`, re-exported by the browser-safe barrel) so
+ * client and services can never drift apart.
  */
 
 /**
- * Types are imported per shared DTO file (not the barrel) for the same
- * browser-bundle reason client.ts documents — one consistent rule.
+ * Types come from the browser-safe barrel for the same reason client.ts
+ * documents — one consistent rule for the whole package.
  */
 import type {
   GetDemographicsResponse,
   MeResponse,
   UpdateDemographics,
   UpdateProfile,
-} from "@smart/shared/src/dto/auth";
+} from "@smart/shared";
 import type {
   CreateItineraryRequest,
   CreateItineraryResponse,
   GetItineraryResponse,
   ListItinerariesResponse,
   UpdateItineraryRequest,
-} from "@smart/shared/src/dto/itineraries";
+} from "@smart/shared";
 import type {
   FlightsSearchRequest,
   FlightsSearchResponse,
@@ -35,7 +36,7 @@ import type {
   PlanRequest,
   PlanResponse,
   ReferenceResponse,
-} from "@smart/shared/src/dto/gemini";
+} from "@smart/shared";
 import type {
   ExportPdfResponse,
   GroupCreate,
@@ -45,7 +46,7 @@ import type {
   ShareCreate,
   ShareResponse,
   SharedItineraryResponse,
-} from "@smart/shared/src/dto/tools";
+} from "@smart/shared";
 
 /**
  * Shared defines the profile/ generate-text contracts as schemas without type

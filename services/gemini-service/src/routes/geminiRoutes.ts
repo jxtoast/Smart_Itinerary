@@ -20,7 +20,7 @@ import {
   createLogger,
   parseBody,
   requireClaims,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 import type { Pool } from "pg";
 import { GeminiService } from "../gemini/GeminiService";
 import {

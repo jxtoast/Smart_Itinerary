@@ -8,7 +8,7 @@ import {
   createBroker,
   createLogger,
   defaultBrokerUrl,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 
 /**
  * Publishes the two events this service owns on the RabbitMQ topic exchange

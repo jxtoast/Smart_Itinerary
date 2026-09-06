@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  asyncHandler,
   ApiError,
   GroupCreateSchema,
   JoinGroupSchema,
   MemberInviteSchema,
   parseBody,
-} from "@smart/shared";
-import { asyncHandler } from "../http/async-handler";
+} from "@smart/shared/src/server";
 import { parseParam } from "../http/params";
 import { createRequireAuth } from "../http/require-auth";
 import { ToolsRouteDeps } from "../deps";

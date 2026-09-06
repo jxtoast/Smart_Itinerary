@@ -23,7 +23,7 @@ import {
   createTokenVerifier,
   env,
   envInt,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 import { buildApp } from "./app";
 import { createEventPublisher, closeBroker } from "./eventPublisher";
 import { createItineraryClient } from "./itineraryClient";

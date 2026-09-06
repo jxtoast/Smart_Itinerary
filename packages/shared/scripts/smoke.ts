@@ -13,7 +13,7 @@ import {
   ROUTING_KEYS,
   signDevToken,
   createTokenVerifier,
-} from "../src";
+} from "../src/server";
 
 async function main(): Promise<void> {
   // 1. DTO validation round-trips

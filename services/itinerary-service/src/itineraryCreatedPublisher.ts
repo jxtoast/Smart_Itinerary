@@ -6,7 +6,7 @@ import {
   createBroker,
   createLogger,
   defaultBrokerUrl,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 
 /**
  * Publishes the `itinerary.created` event (diagram: "Message Broker —

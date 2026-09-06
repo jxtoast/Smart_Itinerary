@@ -4,7 +4,7 @@ import {
   GetItineraryResponseSchema,
   createLogger,
   env,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 
 /**
  * Internal HTTP client for the itinerary-service (task contract: the PDF

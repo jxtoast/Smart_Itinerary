@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { ExportPdfResponseSchema, envInt } from "@smart/shared";
-import { asyncHandler } from "../http/async-handler";
+import { asyncHandler, ExportPdfResponseSchema, envInt } from "@smart/shared/src/server";
 import { parseParam } from "../http/params";
 import { createRequireAuth } from "../http/require-auth";
 import { ToolsRouteDeps } from "../deps";

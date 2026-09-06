@@ -7,7 +7,7 @@ import {
   TravelType,
   createLogger,
   query,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 
 const logger = createLogger("gemini-service");
 

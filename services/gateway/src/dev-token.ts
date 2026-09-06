@@ -14,8 +14,7 @@
  */
 
 import { Request, RequestHandler, Response } from "express";
-import { AuthClaimsSchema, env, parseBody, signDevToken } from "@smart/shared";
-import { asyncRoute } from "./async-route";
+import { asyncHandler, AuthClaimsSchema, env, parseBody, signDevToken } from "@smart/shared/src/server";
 
 /** Same cookie the shared JWT adapter reads — kept in sync by convention. */
 const SI_SESSION_COOKIE = "si_session";
@@ -28,7 +27,7 @@ const DEV_TOKEN_TTL_SECONDS = 12 * 60 * 60; // 12h, matching signDevToken's defa
 const DEFAULT_DEV_SUB = "1b9472e1-a85e-43bf-9898-6f44e2b20809";
 const DevTokenRequestSchema = AuthClaimsSchema.partial();
 
-export const devTokenHandler: RequestHandler = asyncRoute(
+export const devTokenHandler: RequestHandler = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     if (env("TOKEN_VERIFY_MODE", "dev") !== "dev") {
       res.status(404).json({

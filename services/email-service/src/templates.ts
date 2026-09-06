@@ -3,7 +3,7 @@ import {
   ItineraryCreatedEvent,
   ItinerarySharedEvent,
   env,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 
 /**
  * HTML + plain-text templates for the four notification emails (diagram:

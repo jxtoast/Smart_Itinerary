@@ -1,9 +1,22 @@
+import type {
+  ErrorRequestHandler,
+  NextFunction,
+  Request,
+  RequestHandler,
+  Response,
+} from "express";
 import pino, { Logger } from "pino";
 import { ZodType } from "zod";
 
 /**
  * HTTP helpers shared by every service: structured logging (CloudWatch-ready
  * JSON), a typed ApiError, zod body validation and an async wrapper.
+ *
+ * Typed against express's own types (`@types/express` is a devDependency of
+ * this package). The import is type-only — erased at runtime, so nothing
+ * express ever reaches a bundle; but `asyncHandler`/`errorHandler` now return
+ * real `RequestHandler`/`ErrorRequestHandler`s, which is what lets every
+ * service drop its locally-typed copies of these wrappers.
  */
 
 export function createLogger(serviceName: string): Logger {
@@ -37,27 +50,28 @@ export class ApiError extends Error {
   }
 }
 
-/** Express `next`-style structurally typed to avoid depending on express here. */
-type NextLike = (error?: unknown) => void;
-interface ResponseLike {
-  status(code: number): { json(body: unknown): unknown };
-}
-
-/** Wrap an async route handler so rejections reach the error middleware. */
+/**
+ * Wrap an async route handler so rejections reach the error middleware.
+ *
+ * Express 4 does not observe promises returned by handlers — a rejected
+ * async handler would become an unhandled rejection and crash the process.
+ * This wrapper forwards rejections to `next(error)`, landing in the shared
+ * `errorHandler` below (→ JSON 4xx/5xx).
+ */
 export function asyncHandler(
-  fn: (req: never, res: ResponseLike, next: NextLike) => Promise<unknown>
-): (req: never, res: ResponseLike, next: NextLike) => void {
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>
+): RequestHandler {
   return (req, res, next) => {
     fn(req, res, next).catch(next);
   };
 }
 
-export function errorHandler(
+export const errorHandler: ErrorRequestHandler = (
   error: unknown,
-  _req: unknown,
-  res: ResponseLike,
-  _next: NextLike
-): void {
+  _req,
+  res,
+  _next
+) => {
   const logger = createLogger("http");
   if (error instanceof ApiError) {
     res.status(error.status).json({ error: error.message, details: error.details });
@@ -70,7 +84,7 @@ export function errorHandler(
   }
   logger.error({ err: error }, "unhandled error");
   res.status(500).json({ error: "Internal server error" });
-}
+};
 
 /** Validate a request body against a zod schema, throwing 400 on failure. */
 export function parseBody<T>(schema: ZodType<T>, body: unknown): T {

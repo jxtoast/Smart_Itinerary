@@ -7,7 +7,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { isMockModeEnabled } from "@smart/api-client";
-import { signDevToken } from "@smart/shared/src/adapters/jwt";
+import { signDevToken } from "@smart/shared/src/server";
 import {
   AUTH_HANDOFF_TTL_SECONDS,
   AUTH_NEXT_COOKIE,

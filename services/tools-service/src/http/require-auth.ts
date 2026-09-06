@@ -1,5 +1,5 @@
 import { Request } from "express";
-import { ApiError, AuthClaims, TokenVerifier, requireClaims } from "@smart/shared";
+import { ApiError, AuthClaims, TokenVerifier, requireClaims } from "@smart/shared/src/server";
 
 /**
  * require-auth.ts — requireClaims with invalid/expired tokens reported as 401.

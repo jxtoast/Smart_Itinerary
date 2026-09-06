@@ -12,11 +12,12 @@
  * upstreams.ts): the gateway forwards `/api/<area>/*` UNCHANGED, so the
  * service-mounted paths are exactly what this client calls.
  *
- * NOTE: contracts are imported per DTO FILE (`@smart/shared/src/dto/*`), not
- * from the `@smart/shared` barrel — the barrel also re-exports the server
- * adapters (pg/amqplib/nodemailer/S3), whose Node builtins cannot resolve in
- * a browser bundle. Subpath-scoped contract imports are what keep this
- * package shippable to the client.
+ * NOTE: contracts come from the `@smart/shared` root barrel, which is
+ * browser-safe by design: it carries only types, zod DTOs and event schemas.
+ * The Node-only adapters (pg/amqplib/nodemailer/S3) live behind the server
+ * entry `@smart/shared/src/server`, so importing the barrel here pulls no
+ * Node builtins into the bundle. (Before the barrel split this package had
+ * to deep-import each dto file; that workaround is retired.)
  */
 
 import {
@@ -25,14 +26,14 @@ import {
   UpdateProfileSchema,
   UserDemographicsSchema,
   UserProfileSchema,
-} from "@smart/shared/src/dto/auth";
+} from "@smart/shared";
 import {
   CreateItineraryRequestSchema,
   CreateItineraryResponseSchema,
   GetItineraryResponseSchema,
   ListItinerariesResponseSchema,
   UpdateItineraryRequestSchema,
-} from "@smart/shared/src/dto/itineraries";
+} from "@smart/shared";
 import {
   FlightsSearchRequestSchema,
   FlightsSearchResponseSchema,
@@ -43,7 +44,7 @@ import {
   PlanRequestSchema,
   PlanResponseSchema,
   ReferenceResponseSchema,
-} from "@smart/shared/src/dto/gemini";
+} from "@smart/shared";
 import {
   ExportPdfResponseSchema,
   GroupCreateSchema,
@@ -53,7 +54,7 @@ import {
   ShareCreateSchema,
   ShareResponseSchema,
   SharedItineraryResponseSchema,
-} from "@smart/shared/src/dto/tools";
+} from "@smart/shared";
 import { ApiClientOptions, resolveApiBaseUrl } from "./env";
 import { encodePathSegment, requestJson, type FetchLike } from "./request";
 import type { ApiClient } from "./types";

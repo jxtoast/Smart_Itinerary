@@ -7,8 +7,7 @@
  * Bodies are validated with the shared zod DTOs — never hand-rolled checks.
  */
 import { Router } from "express";
-import { ApiError, parseBody, requireClaims, UpdateProfileSchema, UserProfileSchema } from "@smart/shared";
-import { asyncHandler } from "../http/async-handler";
+import { asyncHandler, ApiError, parseBody, requireClaims, UpdateProfileSchema, UserProfileSchema } from "@smart/shared/src/server";
 import { AuthRouteDeps } from "../deps";
 
 export function createProfileRouter(deps: AuthRouteDeps): Router {

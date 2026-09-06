@@ -12,7 +12,7 @@
  * Env: DATABASE_URL (pool is created once in src/index.ts).
  */
 import { Pool } from "pg";
-import { ApiError, queryOne } from "@smart/shared";
+import { ApiError, queryOne } from "@smart/shared/src/server";
 
 /** Raw snake_case row shape pg returns for `users_demographics`. */
 export type UsersDemographicsRow = {

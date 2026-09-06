@@ -1,4 +1,4 @@
-import { Broker, Mailer, QUEUES, ROUTING_KEYS, createLogger } from "@smart/shared";
+import { Broker, Mailer, QUEUES, ROUTING_KEYS, createLogger } from "@smart/shared/src/server";
 import {
   handleGroupInvited,
   handleItineraryCreated,

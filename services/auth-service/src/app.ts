@@ -8,7 +8,7 @@
  * wiring readable in one screen and keeps index.ts a pure composition root.
  */
 import express, { Express } from "express";
-import { createLogger, errorHandler } from "@smart/shared";
+import { createLogger, errorHandler } from "@smart/shared/src/server";
 import { requestLogger } from "./http/request-logger";
 import { cookieMiddleware } from "./cookies";
 import { AuthRouteDeps } from "./deps";

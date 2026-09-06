@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import { createLogger, queryOne } from "@smart/shared";
+import { createLogger, queryOne } from "@smart/shared/src/server";
 import type { GeminiService } from "../gemini/GeminiService";
 // type-only: no runtime coupling between auditing and prompt building
 import type { GeminiGeneration } from "../gemini/prompts";

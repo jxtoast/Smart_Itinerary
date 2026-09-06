@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import { GroupDto, GroupDtoSchema, query, queryOne } from "@smart/shared";
+import { GroupDto, GroupDtoSchema, query, queryOne } from "@smart/shared/src/server";
 
 /**
  * Tools Service repository — every SQL statement of this service lives here

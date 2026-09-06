@@ -6,7 +6,7 @@ import {
   createBroker,
   createLogger,
   defaultBrokerUrl,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 
 /**
  * Demo publisher for the Email Service flow — lets you watch the whole

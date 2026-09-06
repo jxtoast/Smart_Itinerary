@@ -15,7 +15,7 @@
  */
 import { getApiClient } from "@/lib/api";
 import { ApiClientError, isMockModeEnabled } from "@smart/api-client";
-import type { MeResponse } from "@smart/shared/src/dto/auth";
+import type { MeResponse } from "@smart/shared";
 import { createContext, useContext, useEffect, useState } from "react";
 
 /** The session user as the auth service (or its mock) describes it. */

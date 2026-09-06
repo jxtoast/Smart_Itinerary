@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { GeminiConfig, createLogger } from "@smart/shared";
+import { GeminiConfig, createLogger } from "@smart/shared/src/server";
 
 /**
  * Thin wrapper around the Google Gemini SDK (moved from the monolith's

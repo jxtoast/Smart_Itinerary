@@ -11,7 +11,7 @@
  * Env: DATABASE_URL (pool is created once in src/index.ts).
  */
 import { Pool } from "pg";
-import { AuthClaims, queryOne } from "@smart/shared";
+import { AuthClaims, queryOne } from "@smart/shared/src/server";
 
 /**
  * Columns of `users` exactly as SELECTed below. Declared as a type alias

@@ -6,7 +6,7 @@ import {
   FlightSegmentDisplay,
   FlightStop,
   createLogger,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 // The flight-offer `Itinerary` (duration + segments) is excluded from the
 // @smart/shared star export because it collides with the trip Itinerary —
 // import it via its module path, aliased so the two never mix up.

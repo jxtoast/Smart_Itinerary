@@ -13,7 +13,7 @@ import {
   parseBody,
   requireClaims,
   withTransaction,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 import type { Pool } from "pg";
 import * as itineraryRepository from "../repositories/itineraryRepository";
 import { publishItineraryCreated } from "../itineraryCreatedPublisher";

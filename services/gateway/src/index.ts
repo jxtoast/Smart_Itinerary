@@ -27,7 +27,7 @@ import {
   envInt,
   errorHandler,
   requireClaims,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 import { UPSTREAM_ROUTES, resolveUpstreamUrl } from "./upstreams";
 import { captureRawBody, createProxyHandler, unknownApiRouteHandler } from "./proxy";
 import { healthHandler } from "./health";

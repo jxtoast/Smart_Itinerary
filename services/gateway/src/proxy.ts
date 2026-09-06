@@ -19,7 +19,7 @@
  */
 
 import express, { NextFunction, Request, RequestHandler, Response } from "express";
-import { createLogger, ApiError } from "@smart/shared";
+import { createLogger, ApiError } from "@smart/shared/src/server";
 import {
   UpstreamRoute,
   resolveUpstreamUrl,

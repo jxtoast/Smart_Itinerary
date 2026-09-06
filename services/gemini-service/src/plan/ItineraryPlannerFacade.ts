@@ -6,7 +6,7 @@ import {
   PlanForm,
   WeatherForecast,
   createLogger,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 import { GeminiService, parseGeminiJson } from "../gemini/GeminiService";
 import { buildItineraryGeneration, buildWeatherGeneration } from "../gemini/prompts";
 import { FlightsService } from "../flights/FlightsService";

@@ -1,5 +1,17 @@
 /**
- * @smart/shared — contracts and adapters for the Smart Itinerary platform.
+ * @smart/shared — the BROWSER-SAFE contracts barrel.
+ *
+ * Types, zod DTOs and event schemas only: browser code (apps/web,
+ * @smart/api-client) may import this barrel directly. The infrastructure
+ * adapters (db/storage/mailer/broker/jwt/http) are deliberately NOT
+ * re-exported here — they bind Node-only transports (`pg` opens sockets,
+ * `amqplib` imports `net`, `nodemailer` imports `tls`, the AWS SDK imports
+ * `fs`), and a browser bundle pulling any of them in fails to build with
+ * "Module not found: Can't resolve 'net'".
+ *
+ * Node processes (the gateway and the five services, plus Next server
+ * routes) import `@smart/shared/src/server` instead: the same names plus
+ * every adapter.
  *
  * NOTE: `types/Flight` also exports an `Itinerary` interface (a flight-offer
  * itinerary: duration + segments) which collides with the trip `Itinerary` in
@@ -51,10 +63,3 @@ export * from "./dto/tools";
 
 export * from "./events";
 
-export * from "./adapters/config";
-export * from "./adapters/db";
-export * from "./adapters/storage";
-export * from "./adapters/mailer";
-export * from "./adapters/broker";
-export * from "./adapters/jwt";
-export * from "./adapters/http";

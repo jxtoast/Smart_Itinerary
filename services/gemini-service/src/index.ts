@@ -6,7 +6,7 @@ import {
   env,
   envInt,
   errorHandler,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 import { createGeminiRouter } from "./routes/geminiRoutes";
 import { cookieMiddleware } from "./cookies";
 import { FlightsService } from "./flights/FlightsService";

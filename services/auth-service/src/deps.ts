@@ -6,7 +6,7 @@
  * first-time reader can trace index → app → routes → repositories top-down
  * and see exactly which repository each route talks to.
  */
-import { TokenVerifier } from "@smart/shared";
+import { TokenVerifier } from "@smart/shared/src/server";
 import { UsersRepository } from "./repositories/users.repository";
 import { UsersDemographicsRepository } from "./repositories/users-demographics.repository";
 

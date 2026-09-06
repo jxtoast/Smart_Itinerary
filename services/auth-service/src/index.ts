@@ -11,7 +11,7 @@
  * Startup order mirrors the request path's dependency direction:
  *   DATABASE_URL → pg pool → repositories → routers → express app.
  */
-import { createDbPool, createLogger, createTokenVerifier, envInt } from "@smart/shared";
+import { createDbPool, createLogger, createTokenVerifier, envInt } from "@smart/shared/src/server";
 import { buildApp } from "./app";
 import { UsersRepository } from "./repositories/users.repository";
 import { UsersDemographicsRepository } from "./repositories/users-demographics.repository";

@@ -6,7 +6,7 @@
  * first-time reader can trace index → app → routes → repositories top-down
  * and see exactly which collaborator each route talks to.
  */
-import { Storage, TokenVerifier } from "@smart/shared";
+import { Storage, TokenVerifier } from "@smart/shared/src/server";
 import { Pool } from "pg";
 import { ItineraryClient } from "./itineraryClient";
 import { EventPublisher } from "./eventPublisher";

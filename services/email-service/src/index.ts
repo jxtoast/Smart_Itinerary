@@ -7,7 +7,7 @@ import {
   defaultBrokerUrl,
   env,
   envInt,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 import { startEmailConsumers } from "./consumers";
 
 /**

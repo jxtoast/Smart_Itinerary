@@ -9,13 +9,13 @@
  */
 import { Router } from "express";
 import {
+  asyncHandler,
   ApiError,
   GetDemographicsResponseSchema,
   parseBody,
   requireClaims,
   UserDemographicsSchema,
-} from "@smart/shared";
-import { asyncHandler } from "../http/async-handler";
+} from "@smart/shared/src/server";
 import { AuthRouteDeps } from "../deps";
 import { UserDemographicsRecord } from "../repositories/users-demographics.repository";
 

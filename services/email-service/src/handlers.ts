@@ -8,7 +8,7 @@ import {
   createLogger,
   env,
   parseEvent,
-} from "@smart/shared";
+} from "@smart/shared/src/server";
 import {
   groupInvitedEmail,
   itineraryCreatedEmail,

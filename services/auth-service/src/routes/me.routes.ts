@@ -7,8 +7,7 @@
  * @smart/shared — { user: { …profile, userDemographics } }.
  */
 import { Router } from "express";
-import { MeResponseSchema, requireClaims } from "@smart/shared";
-import { asyncHandler } from "../http/async-handler";
+import { asyncHandler, MeResponseSchema, requireClaims } from "@smart/shared/src/server";
 import { AuthRouteDeps } from "../deps";
 
 export function createMeRouter(deps: AuthRouteDeps): Router {

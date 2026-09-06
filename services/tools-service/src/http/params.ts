@@ -1,5 +1,5 @@
 import { ZodType } from "zod";
-import { ApiError } from "@smart/shared";
+import { ApiError } from "@smart/shared/src/server";
 
 /**
  * params.ts — validate a path parameter (parseBody's counterpart for

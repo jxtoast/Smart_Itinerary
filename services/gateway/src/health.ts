@@ -11,8 +11,7 @@
  */
 
 import { RequestHandler } from "express";
-import { createLogger } from "@smart/shared";
-import { asyncRoute } from "./async-route";
+import { asyncHandler, createLogger } from "@smart/shared/src/server";
 import { UPSTREAM_ROUTES, UpstreamState, resolveUpstreamUrl } from "./upstreams";
 
 const logger = createLogger("gateway-health");
@@ -42,7 +41,7 @@ async function checkUpstream(baseUrl: string): Promise<UpstreamState> {
   }
 }
 
-export const healthHandler: RequestHandler = asyncRoute(async (_req, res) => {
+export const healthHandler: RequestHandler = asyncHandler(async (_req, res) => {
   // Probe all upstreams in parallel so the total wait is one timeout, not N.
   const states: Record<string, UpstreamState> = {};
   await Promise.all(
