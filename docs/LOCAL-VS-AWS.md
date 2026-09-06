@@ -11,6 +11,7 @@ the AWS-shaped contract; pointing it at AWS later is an environment-variable
 change, not a rewrite.
 
 > Just want to run it? See `docs/GETTING_STARTED.md`.
+> Want the diagram mirrored box-for-box and every box mapped to code? See `docs/ARCHITECTURE.md`.
 > Want the PRD/architecture rules? See `docs/TASKS.md` §1.
 
 ---

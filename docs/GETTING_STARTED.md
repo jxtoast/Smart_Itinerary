@@ -5,7 +5,8 @@ what it is, why each command looks the way it does, and how to verify it works �
 no prior microservices experience assumed.
 
 > Looking for the architecture (why services are split this way, how it maps to
-> the AWS diagram)? See `docs/TASKS.md` §1 and each service's own
+> the AWS diagram)? See `docs/ARCHITECTURE.md` (diagram mirror, box↔code
+> mapping, event catalogue), `docs/TASKS.md` §1 (the PRD) and each service's own
 > `services/<name>/README.md`. Wondering why the stack uses Postgres/MinIO/
 > Mailpit instead of "real" AWS, or what a dollar amount in the app means?
 > See `docs/LOCAL-VS-AWS.md`. This file is only about **running and checking** it.
