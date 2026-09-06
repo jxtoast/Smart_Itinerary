@@ -1,8 +1,0 @@
-# Terraform working files — state may contain the Google client secret, and
-# terraform.tfvars definitely does. Local only, never committed.
-.terraform/
-*.tfstate
-*.tfstate.*
-*.tfplan
-crash.log
-terraform.tfvars

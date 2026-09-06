@@ -1,0 +1,49 @@
+# Copy to terraform.tfvars (gitignored — see .gitignore) and fill in what you
+# need. Everything not listed here keeps its docker-compose-parity default
+# from variables.tf; the swap table at the top of that file explains each.
+
+project   = "smart-itinerary"
+aws_region = "ap-southeast-1" # keep in sync with S3_REGION in packages/shared/.env.example
+
+# ── Required before a real apply ──────────────────────────────────────────────
+
+# Globally unique across ALL AWS accounts — use your initials, not this value.
+cognito_hosted_ui_domain_prefix = "smart-itinerary-CHANGE-ME"
+
+# Google Cloud OAuth client (modules/cognito/RUNBOOK.md step 1 — free).
+google_client_id     = "PASTE_GOOGLE_OAUTH_CLIENT_ID"
+google_client_secret = "PASTE_GOOGLE_OAUTH_CLIENT_SECRET"
+
+# Third-party keys (empty = the affected endpoints answer 503, like compose).
+gemini_api_key  = ""
+amadeus_api_key = ""
+
+# ── Swap targets (fill in when the AWS-side component exists) ────────────────
+
+# Amazon MQ for RabbitMQ (amqps://…:5671) — the broker is created by hand
+# (README "What is deliberately not here").
+amqp_url = ""
+
+# SES SMTP credentials from the SES console; MAIL_FROM must also be a
+# SES-verified identity before mail actually sends.
+ses_smtp_username = ""
+ses_smtp_password = ""
+
+# Public browser origin of the web app (share links / email links resolve in
+# a BROWSER — not a compose hostname).
+# web_public_url = "https://my-demo.example.com"
+
+# ── Optional edge pieces (default OFF — see README cost table) ───────────────
+
+# enable_waf          = true
+# route53_zone_id     = "Z0123456789ABC"
+# route53_record_name = "api.example.com"
+# acm_certificate_arn = "arn:aws:acm:ap-southeast-1:123456789012:certificate/…"
+
+# alarm_email = "you@example.com"
+
+# ── Auth mode (after the pool exists — see modules/cognito/RUNBOOK.md) ───────
+
+# token_verify_mode = "cognito"   # all five token-verifying services flip together
+# cognito_callback_urls = ["https://my-demo.example.com/auth/callback"]
+# cognito_logout_urls   = ["https://my-demo.example.com"]
