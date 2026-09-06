@@ -2,8 +2,8 @@
  * Configuration for the gemini-service: env-var names and their defaults.
  *
  * Diagram component: "Gemini Service (Hotel Service)". All third-party keys
- * are SERVER-SIDE ONLY here — the monolith read NEXT_PUBLIC_GEMINI_API_KEY /
- * NEXT_PUBLIC_AMADEUS_* in the browser, which leaked them to every visitor;
+ * are SERVER-SIDE ONLY here — the monolith shipped its Gemini/Amadeus keys
+ * to the browser as public env vars, which leaked them to every visitor;
  * after this service exists the web app never touches these keys again
  * (docs/TASKS.md hard constraint 7).
  *

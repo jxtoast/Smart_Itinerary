@@ -1,11 +1,11 @@
 "use client"; // This makes this file run on the client side
 
-import { FormEvent, useState, useEffect } from "react";
+import { FormEvent, useState } from "react";
 import { Country } from "@/types/Country";
 import { TravelType } from "@/types/TravelType";
 import CountrySearch from "@/app/(itinerary)/plan-itinerary/CountrySearch";
 import { useRouter } from "next/navigation";
-import { UserService } from "@/services/UserService";
+import { useAuth } from "@/context/AuthContext";
 import { getApiClient } from "@/lib/api";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -43,18 +43,9 @@ export default function ItineraryForm({
     number_of_people: "1",
   });
 
-  const userSession = UserService.getUserSession()
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const currentUser = await userSession;
-      if (currentUser) {
-        setUser(currentUser);
-      }
-    };
-    fetchUser();
-  }, [userSession]);
+  // The session user comes from AuthContext (GET /api/auth/me in real mode,
+  // the canned mock user offline) — used only to gate "use your preferences".
+  const { user } = useAuth();
 
   const [prefChecked, setPrefChecked] = useState(false);
 

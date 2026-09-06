@@ -1,7 +1,7 @@
 "use client";
 import { useAuth } from "@/context/AuthContext";
 import { getApiClient } from "@/lib/api";
-import { apiErrorMessage } from "@/lib/apiErrors";
+import { describeApiClientError } from "@/lib/apiError";
 import useHotelStore from "@/store/hotelStore";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -20,6 +20,9 @@ const HotelDetailPage = () => {
     (state) => state.clearHotelDetailsData
   );
   const redirectBacktoItinerary = () => {
+    // The itinerary page is user-scoped; a signed-out visitor has no
+    // itinerary to return to, so the back button is a no-op for them.
+    if (!user) return;
     router.push(`/itinerary/${user.id}/${itineraryId}`);
   };
   const deleteHotelFromItinerary = () => {
@@ -47,7 +50,7 @@ const HotelDetailPage = () => {
           await getApiClient().itineraries.removeAccommodation(String(hotelDetails.id));
         } catch (error) {
           Swal.showValidationMessage(
-            `Error deleting hotel from itinerary: ${apiErrorMessage(error, "please try again.")}`
+            `Error deleting hotel from itinerary: ${describeApiClientError(error)}`
           );
           console.error("Error deleting hotel from itinerary:", error);
         }
@@ -90,7 +93,7 @@ const HotelDetailPage = () => {
           <Image
             width={360}
             height={360}
-            src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Sydney_%28AU%29%2C_Bondi_Beach_--_2019_--_2354.jpg/640px-Sydney_%28AU%29%2C_Bondi_Beach_--_2019_--_2354.jpg"
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Sydney_%28AU%29%2C_Bondi_Beach_--_2019_--_2354.jpg/960px-Sydney_%28AU%29%2C_Bondi_Beach_--_2019_--_2354.jpg"
             alt={"hotel image"}
             style={{ width: "auto", height: "auto" }}
           />

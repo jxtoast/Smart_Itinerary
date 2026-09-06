@@ -1,8 +1,5 @@
 "use client";
 
-import { UserService } from "@/services/UserService";
-import { useEffect, useState } from "react";
-import { User } from "@/types/User";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import ImageCarousel from "@/components/ImageCarousel/ImageCarousel";
@@ -11,10 +8,11 @@ import withReactContent from "sweetalert2-react-content";
 import { FaCoffee } from "react-icons/fa";
 import { GrPlan } from "react-icons/gr";
 
-
-
 export default function Home() {
-  const { user, loading, updateUser } = useAuth();
+  // The session comes from AuthContext, which calls GET /api/auth/me —
+  // auth-service upserts the user row from the Cognito claims server-side,
+  // so the page itself has no user-provisioning code to run.
+  const { loading } = useAuth();
 
   const MySwal = withReactContent(Swal);
 
@@ -33,30 +31,6 @@ export default function Home() {
       },
     });
   };
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      // Get the user session
-      const currentUser = await UserService.getUserSession();
-
-      if (currentUser && currentUser.id) {
-        const userExistsInDb = await UserService.checkUserExists(currentUser.id);
-        //If user does not exist in the users table, insert user data
-        if (!userExistsInDb) {
-          const user: User = {
-            id: currentUser.id,
-            email: currentUser.email,
-            name: currentUser.name,
-            avatar_url: currentUser.avatar_url
-          }
-          await UserService.createUser(user)
-        }
-      }
-      if (currentUser) updateUser(currentUser); // Set the user data to display their profile
-    };
-
-    fetchUser();
-  }, []);
 
   if (loading) {
     return <div>Loading...</div>;

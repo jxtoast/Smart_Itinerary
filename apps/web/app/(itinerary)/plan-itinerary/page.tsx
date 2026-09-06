@@ -17,7 +17,7 @@ import { useEffect, useState } from "react";
 import { Country } from "@/types/Country";
 import { TravelType } from "@/types/TravelType";
 import { getApiClient } from "@/lib/api";
-import { apiErrorMessage } from "@/lib/apiErrors";
+import { describeApiClientError } from "@/lib/apiError";
 import dynamic from "next/dynamic";
 
 const ItineraryForm = dynamic(() =>
@@ -46,7 +46,7 @@ export default function PlanItinerary() {
         setTravelData(travelTypes.items as TravelType[]);
       } catch (error) {
         console.error("Error loading plan-form reference data:", error);
-        setLoadError(apiErrorMessage(error, "Could not load the planning form data."));
+        setLoadError(describeApiClientError(error));
       }
     };
     loadReferenceData();

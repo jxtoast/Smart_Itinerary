@@ -28,7 +28,7 @@ import {
 } from "react-icons/fa";
 import Swal from "sweetalert2";
 import { getApiClient } from "@/lib/api";
-import { apiErrorMessage } from "@/lib/api-errors";
+import { describeApiClientError } from "@/lib/apiError";
 import type { UserProfile } from "@smart/api-client";
 import type {
   GetDemographicsResponse,
@@ -91,7 +91,7 @@ export default function Profile() {
         setDemographics(demographicsData);
       } catch (error) {
         console.error("Failed to load profile:", error);
-        setLoadError(apiErrorMessage(error));
+        setLoadError(describeApiClientError(error));
       } finally {
         setLoading(false); // Stop showing the spinner once the card resolved (or failed)
       }
@@ -105,7 +105,7 @@ export default function Profile() {
         setItineraries(list.itineraries);
       } catch (error) {
         console.error("Failed to load itineraries:", error);
-        setItinerariesError(apiErrorMessage(error));
+        setItinerariesError(describeApiClientError(error));
       }
     };
 
@@ -153,7 +153,7 @@ export default function Profile() {
           );
           setIsConfirmed(true); // Set confirmation state to true
         } catch (error) {
-          Swal.showValidationMessage(`Error deleting itinerary: ${apiErrorMessage(error)}`);
+          Swal.showValidationMessage(`Error deleting itinerary: ${describeApiClientError(error)}`);
           console.error("Error deleting itinerary:", error);
         }
       },

@@ -1,3 +1,13 @@
+/**
+ * Builds the flight-search half of a gemini-service /plan payload
+ * (diagram: "Clients — Web" → "API Gateway" → "Gemini Service").
+ *
+ * The only survivor of the web app's former services/ layer — it does no
+ * I/O, it just assembles the snake_case Amadeus criteria the gateway-gated
+ * plan facade forwards to the flight search (apps/web/app/(itinerary)/
+ * itinerary/page.tsx is the caller). The flight search itself runs
+ * server-side in gemini-service; the browser holds no Amadeus key.
+ */
 import { FlightSearchCriteria } from "@/types/Flight";
 
 export class FlightSearchCriteriaBuilder {
@@ -14,13 +24,11 @@ export class FlightSearchCriteriaBuilder {
   }
 
   public withDepartureDate(departureDate: string): this {
-    // You might want to add date validation here
     this.config.departure_date = departureDate;
     return this;
   }
 
   public withReturnDate(returnDate: string): this {
-    // You might want to add date validation here
     this.config.return_date = returnDate;
     return this;
   }

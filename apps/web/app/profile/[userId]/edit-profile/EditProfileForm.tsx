@@ -18,7 +18,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { logFormData } from '@/utils/logger';
 import { getApiClient } from '@/lib/api';
-import { apiErrorMessage } from '@/lib/api-errors';
+import { describeApiClientError } from "@/lib/apiError";
 import type { UpdateDemographics } from '@smart/shared';
 
 /** The travel-type reference fields this form renders (gemini-service rows). */
@@ -103,7 +103,7 @@ export default function EditProfileForm() {
         });
       } catch (loadError) {
         console.error("Failed to load profile preferences:", loadError);
-        setError(apiErrorMessage(loadError));
+        setError(describeApiClientError(loadError));
       }
     };
     loadProfile();
@@ -150,7 +150,7 @@ export default function EditProfileForm() {
       // Redirect to the profile page
       router.push(`/profile/${user.id}`);
     } catch (submitError: unknown) {
-      setError(apiErrorMessage(submitError));
+      setError(describeApiClientError(submitError));
     } finally {
       setIsLoading(false);
     }
