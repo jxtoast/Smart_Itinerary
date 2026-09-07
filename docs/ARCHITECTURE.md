@@ -11,6 +11,7 @@ whole thing on a laptop for $0 — without asking anyone.
 | Question | Doc |
 |---|---|
 | How do I run and verify it? | `docs/GETTING_STARTED.md` |
+| Explain every file, every service, every design decision (narrative) | `docs/WALKTHROUGH.md` |
 | Why Postgres/MinIO/Mailpit instead of "real" AWS — is that a compromise? | `docs/LOCAL-VS-AWS.md` (no — each stand-in is the same product or the same API) |
 | PRD, hard constraints, task board | `docs/TASKS.md` |
 | Each service's endpoints, env vars, request walkthrough | `services/<name>/README.md` |

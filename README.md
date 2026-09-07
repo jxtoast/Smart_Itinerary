@@ -38,9 +38,12 @@ and the full task-by-task story lives in [`docs/TASKS.md`](docs/TASKS.md).
 ```
 
 The browser only ever talks to the Next.js app, which proxies same-origin
-`/api/*` to the gateway; every service re-verifies the caller's JWT. Detailed
-diagrams, the diagram↔repo↔AWS mapping, the event catalogue and runbooks live
-in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and each service documents
+`/api/*` to the gateway; every service re-verifies the caller's JWT. A
+file-by-file, service-by-service narrative of the whole system — what each
+part does, why it was separated, and how they communicate — is
+[`docs/WALKTHROUGH.md`](docs/WALKTHROUGH.md). Detailed diagrams, the
+diagram↔repo↔AWS mapping, the event catalogue and runbooks live in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and each service documents
 itself in `services/<name>/README.md`.
 
 ## Quickstart
@@ -71,7 +74,7 @@ packages/api-client/          # typed browser client (+ offline mock mode)
 db/init/                      # per-service DDL + demo seeds, applied on first boot
 docker-compose.yml            # the full local stack
 infra/terraform/              # AWS scaffold — checked in, NEVER applied
-docs/                         # TASKS.md (the board) · ARCHITECTURE · GETTING_STARTED
+docs/                         # TASKS.md (the board) · WALKTHROUGH · ARCHITECTURE · GETTING_STARTED
 ```
 
 ## Ports & services
