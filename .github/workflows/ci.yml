@@ -17,8 +17,9 @@
 #     no longer a standalone Vercel app — it talks to the gateway
 #     (next.config.ts rewrite → services/gateway), and a Vercel deployment
 #     would ship a UI pointing at a gateway that has no public existence.
-#     The repo's Vercel secrets are left untouched (not ours to manage);
-#     AWS-side deploys (ECR/ECS) come later via the Terraform scaffold (T3.2).
+#     The repo's Vercel secrets are left untouched (not ours to manage).
+#     The deploy leg of CI/CD (GitHub → ECR → ECS) lives in deploy-uat.yml —
+#     dormant until the Terraform scaffold is applied (the repo's $0 rule).
 #   * The Aikido SAST job is kept exactly as it was (same action, same
 #     options, same two repo secrets).
 #

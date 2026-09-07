@@ -92,9 +92,12 @@ Two documented fidelity notes about the diagram itself (both decisions recorded
 in `docs/TASKS.md` §1.2):
 
 1. **The diagram's "CodeCommit" box is GitHub.** AWS CodeCommit is closed to new
-   customers, so GitHub is the source of truth and GitHub Actions is the CI
-   (`.github/workflows/`). The rest of the row — ECR → ECS → CloudWatch — is
-   scaffolded in `infra/` Terraform.
+   customers, so GitHub is the source of truth and GitHub Actions is the CI/CD
+   (`.github/workflows/`): `ci.yml` is the CI leg (build, tests, SAST on every
+   push) and `deploy-uat.yml` is the deploy leg (push images to ECR, roll ECS
+   services) — dormant until the `infra/` Terraform is applied, per the $0
+   rule. The AWS side of the row — ECR → ECS → CloudWatch — is scaffolded in
+   `infra/` Terraform.
 2. **The two "API Gateway instance" boxes are one service deployed twice.**
    `services/gateway` is a stateless Express app; the ECS task definition in
    the `infra/` Terraform sets `desired_count = 2`, which reproduces the
@@ -203,7 +206,7 @@ env-var swap (§6).
 | (Email delivery) | `packages/shared/src/adapters/mailer.ts` (SMTP) | Amazon SES (SMTP interface) | `mailpit` container :1025 (web inbox :8025) |
 | Amazon S3 (File Storage) | `packages/shared/src/adapters/storage.ts` (official `@aws-sdk/client-s3`) | S3 bucket | `minio` container :9000 (console :9001), bucket `si-files` |
 | AWS Secrets Manager | server-side env only — root `.env` (gitignored) for compose | Secrets Manager | root `.env` |
-| CI/CD: CodeCommit → Actions → ECR → ECS → CloudWatch | `.github/workflows/preview.yaml`, `.github/workflows/production.yaml`; image builds `services/*/Dockerfile` | ECR + ECS + CloudWatch via `infra/` | GitHub is the source (CodeCommit closed to new customers); Actions run build + Cypress (mock auth) + Aikido SAST today, deploying the web app to Vercel — the scaffolds extend the same pipeline to ECR/ECS |
+| CI/CD: CodeCommit → Actions → ECR → ECS → CloudWatch | `.github/workflows/ci.yml` (build, tests, SAST on every push); `.github/workflows/deploy-uat.yml` (ECR push + ECS rollout; image builds `services/*/Dockerfile`) | ECR + ECS + CloudWatch via `infra/` | GitHub is the source (CodeCommit closed to new customers). CI runs today; the deploy workflow is coded but **dormant** — its preflight verifies the AWS side exists (Terraform applied) and otherwise exits green with the exact gap named. The retired monolith pipelines (`production.yaml`/`preview.yaml`, Vercel) are gone with the monolith. |
 
 Everything in the "Repo path" column exists in this repository — including the
 Terraform scaffolds, which are **checked in but never applied** (see §6).
@@ -315,7 +318,7 @@ Every difference below is an environment variable; no service code changes.
 | Auth | `TOKEN_VERIFY_MODE=dev` + `JWT_DEV_SECRET` | `TOKEN_VERIFY_MODE=cognito` + `COGNITO_ISSUER` + `COGNITO_CLIENT_ID` — every service (gateway + 4) flips together, per `infra/cognito/RUNBOOK.md` |
 | AI keys | root `.env` (`GEMINI_API_KEY`, `AMADEUS_API_KEY`) — server-side env of gemini-service | Secrets Manager (Terraform scaffold) → same container env vars |
 | Deployment | `docker compose up --build -d` | ECS via the `infra/` Terraform (gateway `desired_count = 2`, one task per service, RDS ×4, S3, ALB) — checked in, **never applied**, $0 |
-| CI | GitHub Actions (`.github/workflows/`) — build, Cypress (mock auth), Aikido SAST | the same Actions pipeline extended to push images to ECR and deploy to ECS (T3.1/T3.2 scaffolds) |
+| CI | GitHub Actions (`.github/workflows/ci.yml`) — typecheck ×9, contract smokes, web build, full compose smoke, Cypress (mock auth), Aikido SAST | `deploy-uat.yml` completes the pipeline: images → ECR, ECS rollout (dormant until Terraform is applied) |
 
 Runbooks that turn this table into clicks:
 
