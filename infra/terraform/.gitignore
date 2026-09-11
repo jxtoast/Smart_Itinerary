@@ -1,0 +1,11 @@
+# Terraform working files. The state file ends up containing the composed
+# DATABASE_URLs and the generated secrets, and terraform.tfvars carries real
+# credentials (Google/AI API keys) — local only, never committed.
+.terraform*/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+terraform.tfvars
+# The lock file (.terraform.lock.hcl) IS committed — it pins provider versions
+# so every machine validates/plans against the same provider builds.

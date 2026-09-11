@@ -1,0 +1,206 @@
+# Smart Itinerary — UAT deploy pipeline (the "CD" in CI/CD).
+#
+# ci.yml is the CI half: on every push it builds and tests everything, then
+# throws the environment away. This workflow is the other half — it ships the
+# six backend images to AWS and rolls the ECS services onto them: the
+# diagram's GitHub → GitHub Actions → ECR → ECS → CloudWatch path.
+#
+# It is deliberately DORMANT until real infrastructure exists (the repo's $0
+# rule — infra/terraform is checked in, never applied). Run it from the
+# Actions tab ("Run workflow"):
+#   * with no AWS secrets / no applied Terraform, the preflight job lists
+#     exactly what's missing and the run finishes GREEN — a no-op by design,
+#     not a broken pipeline;
+#   * with infra applied (runbook + cost table in infra/terraform/README.md),
+#     it pushes every image to ECR and rolls the stack, waiting for each
+#     service to come back stable.
+#
+# Making it fully continuous (deploy on every merge to main) is a two-line
+# trigger change once a UAT account is real:
+#   push: { branches: [main] }
+#
+# How a rollout works, given the scaffold's choices:
+#   * ECR repositories carry the compose service names (modules/ecr), and the
+#     ECS task definitions pin `<repo>:latest` with MUTABLE tags
+#     (modules/ecs, image_tag defaults to "latest") — so "deploy" simply
+#     means: push `:latest`, then force ECS to pull it again
+#     (update-service --force-new-deployment) and wait for stability.
+#   * Rollout order is backends first, gateway last: the gateway fronts all
+#     four upstream services, so it only flips once the new upstreams are
+#     stable behind it.
+#
+# First real deploy only: the four RDS instances start EMPTY — db/init/*.sql
+# are compose volume-mount init scripts, which RDS does not run. Load the DDL
+# once by hand (per infra/terraform/README.md) before the first rollout.
+#
+# Auth note: this uses long-lived access keys in repo secrets
+# (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) — the least machinery for a
+# demo. The production-grade alternative is GitHub OIDC via
+# aws-actions/configure-aws-credentials (id-token: write + role-to-assume),
+# which stores no keys at all.
+
+name: Deploy UAT
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Tag to push and roll out (task definitions pull this tag)"
+        default: "latest"
+        type: string
+
+# Never two rollouts at once — but never cancel one mid-flight either.
+concurrency:
+  group: deploy-uat
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # MUST mirror infra/terraform: the region default (variables.tf), the
+  # project name (modules/*/variables.tf — it prefixes cluster/task names),
+  # and service_names (main.tf local — also the ECR repo names). Rollout
+  # order encodes the "backends first, gateway last" rule from the header.
+  AWS_REGION: ap-southeast-1
+  ECS_CLUSTER: smart-itinerary
+  SERVICES: email-service auth-service itinerary-service gemini-service tools-service gateway
+
+jobs:
+  # ---------------------------------------------------------------- job 1
+  # Decide whether a deploy is even possible — and say exactly what is
+  # missing when it is not. Green no-op, never a red run: the pipeline is
+  # dormant by design, not broken.
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deployable: ${{ steps.decide.outputs.deployable }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check AWS credentials and applied infrastructure
+        id: decide
+        run: |
+          set -euo pipefail
+          missing=()
+          expected=$(wc -w < <(printf '%s\n' $SERVICES))
+
+          if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+            missing+=("repo secrets AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY are not set")
+          else
+            aws configure set region "$AWS_REGION"
+            if ! aws sts get-caller-identity >/dev/null 2>&1; then
+              missing+=("AWS credentials are set but invalid (sts get-caller-identity failed)")
+            else
+              if ! aws ecr describe-repositories --repository-names $SERVICES >/dev/null 2>&1; then
+                missing+=("the ECR repositories for $SERVICES do not all exist (Terraform not applied?)")
+              fi
+              if ! active=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services $SERVICES \
+                              --query 'length(services[?status==`ACTIVE`])' --output text 2>/dev/null) \
+                     || [ "$active" -ne "$expected" ]; then
+                missing+=("ECS cluster '$ECS_CLUSTER' is missing or does not run all $expected services (Terraform not applied?)")
+              fi
+            fi
+          fi
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            {
+              echo "## UAT deploy skipped — dormant by design"
+              for m in "${missing[@]}"; do echo "- $m"; done
+              echo "Provision first: infra/terraform/README.md (apply runbook + cost table), then re-run this workflow."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::UAT not provisioned (${missing[*]}) — skipping deploy; this run is a green no-op."
+            echo "deployable=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deployable=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------- job 2
+  # Build and push every backend image — one parallel job per image. The
+  # matrix is exactly infra/terraform's service_names (== ECR repo names ==
+  # docker-compose service names); every Dockerfile lives at
+  # services/<name>/Dockerfile with the repo root as build context (as in
+  # docker-compose.yml).
+  push-image:
+    if: needs.preflight.outputs.deployable == 'true'
+    needs: [preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - gateway
+          - auth-service
+          - itinerary-service
+          - gemini-service
+          - tools-service
+          - email-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push ${{ matrix.service }}
+        run: |
+          set -euo pipefail
+          image="${{ steps.ecr.outputs.registry }}/${{ matrix.service }}"
+          tag="${{ inputs.image_tag }}"
+          sha_tag="${GITHUB_SHA::7}"
+
+          docker build --file "services/${{ matrix.service }}/Dockerfile" \
+            --tag "$image:$tag" --tag "$image:$sha_tag" .
+
+          docker push "$image:$tag"
+          docker push "$image:$sha_tag" # immutable provenance tag
+          echo "pushed $image:$tag (and :$sha_tag)"
+
+  # ---------------------------------------------------------------- job 3
+  # Roll the ECS services onto the new images and wait for each to stabilize.
+  # Sequential on purpose: one clear failure point, gateway flips last.
+  rollout:
+    if: needs.preflight.outputs.deployable == 'true'
+    needs: [preflight, push-image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Roll every service onto the new images (backends first, gateway last)
+        run: |
+          set -euo pipefail
+          for svc in $SERVICES; do
+            echo "── $svc: forcing a new deployment (pulls :${{ inputs.image_tag }})"
+            aws ecs update-service --cluster "$ECS_CLUSTER" --service "$svc" \
+              --force-new-deployment > /dev/null
+            echo "── $svc: waiting for stability"
+            aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$svc"
+            echo "── $svc: stable"
+          done
+
+          {
+            echo "## UAT rollout complete"
+            echo "All six services stable on \`:latest\` (commit ${{ github.sha }})."
+            echo "Public entry point: the ALB DNS name — \`terraform -chdir=infra/terraform output alb_dns_name\`."
+          } >> "$GITHUB_STEP_SUMMARY"

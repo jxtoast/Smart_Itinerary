@@ -1,0 +1,125 @@
+{
+  "comment": "Fixture itinerary aggregate in the exact shape itinerary-service GET /api/itineraries/:id returns (flat camelCase, see its itineraryRepository.getItineraryAggregate). Used by scripts/render-fixture-pdf.ts to prove PDF generation offline.",
+  "id": "3f1b6db2-2b5f-4a1e-9b7e-0000000000f1",
+  "userId": "1b9472e1-a85e-43bf-9898-6f44e2b20809",
+  "sourceCountry": "Singapore",
+  "destination": "Tokyo",
+  "startDate": "2026-10-01",
+  "endDate": "2026-10-05",
+  "estimatedTotalCost": 2450,
+  "importantNotes": [
+    "Bring your passport — hotels may ask for it at check-in",
+    "Buy a Suica card for trains on day 1",
+    "Carry cash: many small ramen shops are cash-only"
+  ],
+  "weatherForecast": { "forecast": [{ "date": "2026-10-01", "summary": "Sunny, 22°C" }] },
+  "demographics": {
+    "currency": "JPY",
+    "budgetMin": 1500,
+    "budgetMax": 3000,
+    "travelerType": "couple",
+    "purpose": "leisure"
+  },
+  "accommodation": [
+    {
+      "id": 1,
+      "itineraryId": "3f1b6db2-2b5f-4a1e-9b7e-0000000000f1",
+      "name": "Shinjuku Grand Hotel",
+      "estimatedCost": 180,
+      "imageUrl": "",
+      "hotelDescription": "Central hotel two minutes from Shinjuku station's east exit."
+    }
+  ],
+  "itineraryDays": [
+    {
+      "id": 1,
+      "itineraryId": "3f1b6db2-2b5f-4a1e-9b7e-0000000000f1",
+      "date": "2026-10-01",
+      "location": "Shibuya",
+      "description": "Arrival day — keep it light and walk off the flight.",
+      "activities": [
+        {
+          "id": 1,
+          "itineraryDayId": 1,
+          "name": "Shibuya Crossing",
+          "details": "The famous scramble — best viewed from the station overpass.",
+          "estimatedCost": 0,
+          "imageUrl": "",
+          "timing": "16:00"
+        },
+        {
+          "id": 2,
+          "itineraryDayId": 1,
+          "name": "Dinner in Ebisu Yokocho",
+          "details": "Casual food alley; bring cash.",
+          "estimatedCost": 35,
+          "imageUrl": "",
+          "timing": "19:00"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "itineraryId": "3f1b6db2-2b5f-4a1e-9b7e-0000000000f1",
+      "date": "2026-10-02",
+      "location": "Asakusa",
+      "description": "Old Tokyo: temple, market street, and a river walk.",
+      "activities": [
+        {
+          "id": 3,
+          "itineraryDayId": 2,
+          "name": "Sensō-ji Temple",
+          "details": "Arrive before 9am to beat the crowds.",
+          "estimatedCost": 0,
+          "imageUrl": "",
+          "timing": "08:30"
+        },
+        {
+          "id": 4,
+          "itineraryDayId": 2,
+          "name": "Nakamise shopping street",
+          "details": "Souvenirs and street snacks along the temple approach.",
+          "estimatedCost": 20,
+          "imageUrl": "",
+          "timing": "10:00"
+        },
+        {
+          "id": 5,
+          "itineraryDayId": 2,
+          "name": "Sumida river cruise to Odaiba",
+          "details": "One-way cruise; great skyline views at dusk.",
+          "estimatedCost": 15,
+          "imageUrl": "",
+          "timing": "17:00"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "itineraryId": "3f1b6db2-2b5f-4a1e-9b7e-0000000000f1",
+      "date": "2026-10-03",
+      "location": "Shinjuku",
+      "description": "Museums, the observation deck, and the golden-gai bars.",
+      "activities": [
+        {
+          "id": 6,
+          "itineraryDayId": 3,
+          "name": "Tokyo Metropolitan Government observatory",
+          "details": "Free observation deck with Mount Fuji views on clear days.",
+          "estimatedCost": 0,
+          "imageUrl": "",
+          "timing": "10:00"
+        },
+        {
+          "id": 7,
+          "itineraryDayId": 3,
+          "name": "Omoide Yokocho izakaya crawl",
+          "details": "Tiny smoke-filled bars under the rail tracks.",
+          "estimatedCost": 40,
+          "imageUrl": "",
+          "timing": "19:30"
+        }
+      ]
+    }
+  ]
+}

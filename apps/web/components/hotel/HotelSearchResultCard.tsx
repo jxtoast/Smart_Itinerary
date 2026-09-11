@@ -1,0 +1,171 @@
+import Rating from "@/components/hotel/Rating";
+import { useAuth } from "@/context/AuthContext";
+import { Hotel } from "@/types/Hotel";
+import type { CreateItineraryRequest } from "@smart/shared";
+import { getApiClient } from "@/lib/api";
+import { describeApiClientError } from "@/lib/apiError";
+import useHotelStore from "@/store/hotelStore";
+import itineraryStore from "@/store/itineraryStore";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import Swal from "sweetalert2";
+
+/**
+ * Gemini's hotel price is display text ("$180"); the Itinerary Service
+ * stores the estimated cost as a number. Unparseable prices become 0 rather
+ * than NaN (which would fail the request schema's z.number() check).
+ */
+function parseHotelPricePerNight(price: string): number {
+  const parsed = parseFloat(price.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export default function HotelSearchResultCard({
+  isSuggestion = false,
+}: {
+  isSuggestion?: boolean;
+}) {
+  // variables
+  const { useItineraryStore } = itineraryStore();
+  const itinerary = useItineraryStore((state) => state.itinerary);
+  const hotelSearchData = useHotelStore((state) => state.hotelSearchData);
+  const router = useRouter();
+  const { user } = useAuth();
+
+  // functions
+  const addHotelToItinerary = async (
+    itineraryId: string | null | undefined,
+    hotel: Hotel
+  ): Promise<void> => {
+    if (itineraryId) {
+      Swal.fire({
+        background: "#23282e",
+        color: "#FFFFFF",
+        title: "Confirmation",
+        icon: "question",
+        width: "600px",
+        text: `Are you sure you want to add it to your itinerary ${
+          itinerary?.destination ? `for ${itinerary?.destination}` : ""
+        }?`,
+        cancelButtonText: "No",
+        showCancelButton: true,
+        confirmButtonText: "Yes!",
+        showLoaderOnConfirm: true,
+        preConfirm: async () => {
+          try {
+            // The Itinerary Service has no "add one stay" endpoint: its PUT
+            // replaces the whole aggregate, so adding a hotel is a
+            // read-modify-write — fetch the saved itinerary, append the stay,
+            // and PUT it back (children are swapped wholesale server-side).
+            // The weather forecast rides along unchanged, otherwise the PUT
+            // would overwrite the stored forecast with null. The GET response
+            // is typed loosely by the shared schema, so pin the wire payload
+            // shape (plus the server-assigned keys) onto it once here.
+            type SavedAggregate = CreateItineraryRequest["itinerary"] & {
+              userId: string;
+              weatherForecast: unknown;
+            };
+            const client = getApiClient();
+            const savedItinerary = (await client.itineraries.get(
+              itineraryId
+            )) as unknown as SavedAggregate;
+            const newStay = {
+              name: hotel.name,
+              estimatedCost: parseHotelPricePerNight(hotel.price),
+              imageUrl: hotel.image_url,
+              hotelDescription: hotel.description,
+            };
+            await client.itineraries.update(itineraryId, {
+              userId: savedItinerary.userId,
+              itinerary: {
+                ...savedItinerary,
+                accommodation: [...savedItinerary.accommodation, newStay],
+              },
+              weatherForecast: savedItinerary.weatherForecast,
+            });
+            return itineraryId;
+          } catch (error) {
+            Swal.showValidationMessage(
+              `Error saving hotel to itinerary: ${describeApiClientError(error)}`
+            );
+            console.error("Error saving hotel to itinerary:", error);
+          }
+        },
+      }).then((result) => {
+        if (result.isConfirmed) {
+          Swal.fire({
+            timer: 3000,
+            background: "#23282e",
+            color: "#FFFFFF",
+            title: `Success`,
+            showConfirmButton: false,
+            text: "You have successfully added this hotel to your Itinerary! Redirecting you back to itinerary details page...",
+            icon: "success",
+            didOpen: () => {
+              Swal.showLoading();
+            },
+          }).then((result) => {
+            // The save above already required a session (the itinerary is
+            // user-scoped), so the user can only be null if they signed out
+            // mid-flow — there is then no itinerary page to return to.
+            if (!user) return;
+            router.push(`/itinerary/${user.id}/${itineraryId}`);
+          });
+        }
+      });
+    }
+  };
+
+  return (
+    <div className="flex-1 flex flex-col w-full justify-center items-center py-6">
+      {hotelSearchData.length > 0 && (
+        <ul
+          className={`flex flex-col ${isSuggestion ? "w-full" : "w-5/6"} gap-5`}
+        >
+          {hotelSearchData.map((data, index) => (
+            <li key={index}>
+              <div className="card card-side text-black w-full bg-main-3">
+                <figure className="w-1/5">
+                  <Image
+                    src={"/images/building.jpg"}
+                    alt="Building"
+                    width={320}
+                    height={320}
+                    className="w-full"
+                  />
+                </figure>
+                <div className="flex flex-row w-full">
+                  <div className="flex flex-col justify-between w-5/6 border-r p-4">
+                    <h1 className="text-2xl capitalize font-medium" data-testid="hotel-name">
+                      {data.name}
+                    </h1>
+                    <Rating rating={data.rating} />
+                    <div className="overflow-hidden text-ellipsis max-h-12 line-clamp-2">
+                      {data.description}
+                    </div>
+                  </div>
+                  <div className="flex flex-col justify-between w-1/6 p-4 bg-main-4 rounded-tr-lg rounded-br-lg border-r border-t border-b">
+                    <div className="flex flex-col justify-center h-full items-center">
+                      <span className="text-2xl font-medium">{data.price}</span>
+                      <span className="text-xs">per night</span>
+                    </div>
+                    <div className="flex justify-center">
+                      <button
+                        onClick={() => {
+                          addHotelToItinerary(itinerary?.id, data);
+                        }}
+                        className="btn bg-gray-700 text-white border-none w-3/4 hover:bg-gray-800 hover:text-white"
+                      >
+                        Add to Itinerary
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
