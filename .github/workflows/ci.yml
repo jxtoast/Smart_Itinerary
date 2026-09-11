@@ -34,6 +34,7 @@ name: CI
 on:
   push:
     branches:
+      - main
       - microservices-develop
       - "task/**"
   pull_request:
