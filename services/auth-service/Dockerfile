@@ -1,5 +1,5 @@
 # Build context: repository root (see docker-compose.yml)
-FROM node:20-alpine
+FROM node:26-alpine
 WORKDIR /app
 
 # Install workspace production dependencies first (better layer caching)
