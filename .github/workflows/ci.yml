@@ -3,10 +3,11 @@
 # One workflow replacing the monolith-era production.yaml + preview.yaml.
 # What changed, and why:
 #
-#   * Triggers now cover the re-platform: push to `microservices-develop`
-#     (the integration branch) and to every `task/**` branch, plus
-#     pull_request to `main`. The old workflows fired on main/develop only,
-#     so CI never ran once on the re-platform work.
+#   * Triggers now cover the re-platform: push to `main` (the trunk),
+#     `microservices-develop` (the legacy integration branch) and every
+#     `task/**` branch, plus pull_request to `main`. The old workflows
+#     fired on main/develop only, so CI never ran once on the re-platform
+#     work.
 #   * Jobs target the monorepo: typecheck + contract smokes across all npm
 #     workspaces, a production build of @smart/web, a full docker compose
 #     smoke (build → up → gateway /healthz aggregation → down), and the
