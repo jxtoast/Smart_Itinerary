@@ -195,15 +195,15 @@ env-var swap (§6).
 |---|---|---|---|
 | Clients (Web / Mobile / Third Party) | `apps/web/` (Next.js); any HTTP client with a valid JWT | — (client side) | browser on `localhost:3000` (`npm run dev:web`) |
 | Route 53 → WAF → ALB | no code — a deployment concern | Route 53 + WAF + ALB | not needed locally — the browser reaches localhost directly |
-| API Gateway Instance 1 / Instance 2 | `services/gateway/` (Express, :8080); route table `src/upstreams.ts` | ECS service, `desired_count = 2` | `gateway` container :8080 |
-| Amazon Cognito (Auth) | `infra/cognito/` (pool + Google federation + PKCE app client — Terraform, never applied); JWT verification `packages/shared/src/adapters/jwt.ts`; web flow `apps/web/app/auth/*` | Cognito user pool (free tier) | `TOKEN_VERIFY_MODE=dev` — the gateway mints HS256 dev tokens (`POST /api/auth/dev-token`) |
-| Authentication Service (User Profile) | `services/auth-service/` (:8081) | ECS task | `auth-service` container :8081 |
-| Itinerary Service | `services/itinerary-service/` (:8082) | ECS task | `itinerary-service` container :8082 |
-| Gemini Service (Hotel Service) | `services/gemini-service/` (:8083) | ECS task | `gemini-service` container :8083 |
-| Tools Service (Export PDF, Sharing) | `services/tools-service/` (:8084) | ECS task | `tools-service` container :8084 |
+| API Gateway Instance 1 / Instance 2 | `services/gateway/` (Express, :8080); route table `src/upstreams.ts` | ECS service, `desired_count = 2`, auto-scaled (CPU 2–4) | `gateway` container :8080 |
+| Amazon Cognito (Auth) | `infra/terraform/modules/cognito/` (pool + Google federation + PKCE app client — Terraform, never applied); JWT verification `packages/shared/src/adapters/jwt.ts`; web flow `apps/web/app/auth/*` | Cognito user pool (free tier) | `TOKEN_VERIFY_MODE=dev` — the gateway mints HS256 dev tokens (`POST /api/auth/dev-token`) |
+| Authentication Service (User Profile) | `services/auth-service/` (:8081) | ECS task, auto-scaled (CPU 1–3) | `auth-service` container :8081 |
+| Itinerary Service | `services/itinerary-service/` (:8082) | ECS task, auto-scaled (CPU 1–3) | `itinerary-service` container :8082 |
+| Gemini Service (Hotel Service) | `services/gemini-service/` (:8083) | ECS task, auto-scaled (CPU 1–3) | `gemini-service` container :8083 |
+| Tools Service (Export PDF, Sharing) | `services/tools-service/` (:8084) | ECS task, auto-scaled (CPU 1–3) | `tools-service` container :8084 |
 | RDS ×4 (database-per-service) | `db/init/<service>.sql` (DDL + seed); repositories `services/*/src/repositories/` | 4× RDS Postgres | 4× `postgres:16-alpine` — `auth-db` :5433, `itinerary-db` :5434, `gemini-db` :5435, `tools-db` :5436 |
 | Message Broker (RabbitMQ) | `packages/shared/src/adapters/broker.ts` + `packages/shared/src/events.ts` (topology, event schemas) | Amazon MQ (RabbitMQ engine) | `rabbitmq` container :5672 (management UI :15672) |
-| Email Service | `services/email-service/` (:8085) | ECS task | `email-service` container :8085 |
+| Email Service | `services/email-service/` (:8085) | ECS task, auto-scaled (CPU 1–3) | `email-service` container :8085 |
 | (Email delivery) | `packages/shared/src/adapters/mailer.ts` (SMTP) | Amazon SES (SMTP interface) | `mailpit` container :1025 (web inbox :8025) |
 | Amazon S3 (File Storage) | `packages/shared/src/adapters/storage.ts` (official `@aws-sdk/client-s3`) | S3 bucket | `minio` container :9000 (console :9001), bucket `si-files` |
 | AWS Secrets Manager | server-side env only — root `.env` (gitignored) for compose | Secrets Manager | root `.env` |
