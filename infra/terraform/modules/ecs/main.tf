@@ -8,6 +8,8 @@
 #   ECS service      = the always-running instance(s) of that task — the
 #                      gateway runs desired_count = 2, which IS the diagram's
 #                      "API Gateway Instance 1 / Instance 2" behind the ALB
+#   Auto-scaling     = the diagram's "auto-scaled" adjective: each service's
+#                      count moves within [min, max] on CPU (autoscaling.tf)
 #   Cloud Map (DNS)  = compose's service hostnames: the gateway's upstream
 #                      URL `http://auth-service:8081` becomes
 #                      `http://auth-service.<namespace>:8081`
@@ -213,7 +215,8 @@ resource "aws_ecs_service" "services" {
   task_definition = aws_ecs_task_definition.services[each.key].arn
 
   # The gateway ×2 = the diagram's "API Gateway Instance 1 / Instance 2";
-  # every other service is a single task for demo cost.
+  # every other service is a single task for demo cost. Bootstrap value only:
+  # autoscaling.tf takes the count over from the first policy evaluation.
   desired_count = each.key == "gateway" ? var.gateway_desired_count : 1
   launch_type   = "FARGATE"
 

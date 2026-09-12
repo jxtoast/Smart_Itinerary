@@ -15,7 +15,7 @@ swap table at the top of `variables.tf` is the map).
 |---|---|---|
 | `modules/network` | (implied VPC) | vpc-lite: 1 VPC, public subnets ×2 AZs, IGW, **no NAT**; 3 security groups: ALB → services → DBs |
 | `modules/ecr` | "ECR" (CI/CD) | 6 repos, one per service, compose names |
-| `modules/ecs` | "API Gateway Instance 1/2" + the 5 service boxes | Fargate cluster, 6 task definitions + services; **gateway `desired_count = 2`** behind the ALB; Cloud Map DNS (compose's hostnames); `/healthz` container health checks; images from ECR |
+| `modules/ecs` | "API Gateway Instance 1/2" + the 5 service boxes | Fargate cluster, 6 task definitions + services; **gateway `desired_count = 2`** behind the ALB; Cloud Map DNS (compose's hostnames); `/healthz` container health checks; images from ECR; **auto-scaling** on every service (target-tracking CPU: gateway 2–4, rest 1–3) — the diagram's "auto-scaled" |
 | `modules/rds` | "RDS" (database-per-service) | 4× `db.t4g.micro` Postgres 16 — `smart_auth`, `smart_itinerary`, `smart_gemini`, `smart_tools` |
 | `modules/s3` | "Amazon S3 (File Storage)" | 1 private bucket for PDF exports (the MinIO swap) |
 | `modules/secrets` | "AWS Secrets Manager" | `GEMINI_API_KEY`, `AMADEUS_API_KEY`, `JWT_DEV_SECRET` (generated), `AMQP_URL`, SES SMTP creds, 4× `DATABASE_URL` (composed from RDS) |
