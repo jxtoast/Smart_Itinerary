@@ -189,11 +189,53 @@ into an express dependency-injected middleware).
 Nine modules, one per diagram concern, all validate-only: `network` (VPC +
 public subnets, no NAT gateway — a documented cost saver), `ecr` (6 image
 repos), `ecs` (Fargate cluster, one task definition per service, gateway
-`desired_count = 2`, Cloud Map for compose-style hostnames), `rds` (4 ×
-`db.t4g.micro`), `s3` (PDF bucket), `secrets` (per-service secret sets),
-`alb` (public entry), `cloudwatch` (log groups + alarms), `cognito` (user
-pool + Google IdP + PKCE app client, with a `RUNBOOK.md`). The root
-`README.md` has the apply runbook and the full cost table (§11).
+`desired_count = 2`, Cloud Map for compose-style hostnames, **auto-scaling
+on every service**), `rds` (4 × `db.t4g.micro`), `s3` (PDF bucket),
+`secrets` (per-service secret sets), `alb` (public entry), `cloudwatch`
+(log groups + alarms), `cognito` (user pool + Google IdP + PKCE app
+client, with a `RUNBOOK.md`). The root `README.md` has the apply runbook
+and the full cost table (§11).
+
+**How to read a `.tf` file.** These are Terraform files (HCL — HashiCorp
+Configuration Language). Terraform is infrastructure-as-code: instead of
+clicking through the AWS console, you write text that *describes* the
+infrastructure you want, and Terraform's job is to make reality match the
+description. Two properties matter. First, it's **declarative** — you
+state the end state ("the gateway runs between 2 and 4 copies, aiming at
+60% CPU"), never the steps to get there. Second, a `.tf` file provisions
+nothing until someone runs `terraform apply` against a real AWS account —
+which is exactly what this repo never does (the $0 rule). Treat the whole
+tree as the precise, machine-checkable answer to "what would this system
+look like on AWS?".
+
+**How auto-scaling works** — `modules/ecs/autoscaling.tf`, the diagram's
+"auto-scaled" adjective as code. Under docker-compose every service runs
+a fixed number of containers; on AWS someone has to own that number and
+move it. This file hands the job to AWS Application Auto Scaling with two
+declarations per service, working like a home thermostat:
+
+| Resource | Job | Think of it as |
+|---|---|---|
+| `aws_appautoscaling_target` | clamps each service's task count to [min, max] | the dial's range |
+| `aws_appautoscaling_policy` | target-tracking on average CPU: add tasks while CPU holds above 60%, remove after 5 quiet minutes | the thermostat rule |
+
+| Service | min | max | why |
+|---|---|---|---|
+| gateway | 2 | 4 | min = the diagram's two API-gateway boxes; headroom to 4 |
+| the 5 backend services | 1 | 3 | one task at idle (demo cost); grows to 3 under load |
+
+A spike, minute by minute: CPU across the gateway's 2 tasks sustains past
+60% → after 1 minute (scale-out cooldown) AWS adds a 3rd task, then a 4th
+— the max → the ALB spreads requests across all of them, and users notice
+nothing → load subsides → after 5 quiet minutes (scale-in cooldown) AWS
+removes a task, stepping back down to 2. Everything is deliberately
+bounded: 19 tasks worst case across all services, which is why the maxes
+are small (see the README cost table before ever raising them). Two
+details: `desired_count` in `main.tf` is only the *bootstrap* value — from
+the first policy evaluation the count belongs to this policy — and the
+mins equal the bootstrap counts, so idle behaviour is unchanged. No IAM
+setup is needed: Application Auto Scaling uses an AWS-managed
+service-linked role.
 
 ### 3.7 `.github/workflows/`
 
@@ -764,7 +806,8 @@ Full details: [`GETTING_STARTED.md`](GETTING_STARTED.md).
 `infra/terraform/` is the AWS rendering of everything in §1–§7, as code,
 validated but **never applied** (that's what keeps the project $0). Nine
 modules: `network` (VPC, public subnets, no NAT — a documented ~$33/mo
-saver), `ecr`, `ecs` (Fargate; gateway `desired_count = 2`), `rds` (×4),
+saver), `ecr`, `ecs` (Fargate; gateway `desired_count = 2`, every service
+auto-scaled — see §3.6), `rds` (×4),
 `s3`, `secrets`, `alb`, `cloudwatch`, `cognito` (+ runbook).
 
 What applying changes: **nothing in the images or the code.** Services
