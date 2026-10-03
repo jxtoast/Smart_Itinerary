@@ -98,12 +98,24 @@ services:
 
   # --------------------------------------------------------------- file storage
   minio:
-    # quay.io, not Docker Hub: MinIO pulled its images from Docker Hub
-    # (2026-09-12 — broke every fresh pull, CI compose-smoke included);
-    # quay.io is MinIO's other official registry, same images.
-    image: quay.io/minio/minio
+    # bitnamilegacy, not MinIO's own registries: MinIO has withdrawn the
+    # community images in three rounds — versioned tags purged from Docker
+    # Hub (2025), then the Docker Hub repos deleted outright (2026-09-12;
+    # we moved to quay.io then), then quay.io went auth-only and MinIO's
+    # own download server started returning 410 Gone (2026-10-03). The last
+    # reputable public image is Broadcom's frozen Bitnami "legacy" mirror
+    # (June 2025 build, minio + mc bundled). Bitnami quirks, adapted here:
+    # non-PATH binary paths (full paths below), runs as uid 1001 by default
+    # (we pin root, as the official image did — a named volume needs it),
+    # and HOME must be set or the healthcheck's mc can't find its config dir.
+    # If this image ever disappears, the S3-API contract with tools-service
+    # is unchanged — any S3-compatible server can take the slot.
+    image: bitnamilegacy/minio:latest
+    user: "0:0"
+    entrypoint: ["/opt/bitnami/minio/bin/minio"]
     command: server /data --console-address ":9001"
     environment:
+      HOME: /tmp
       MINIO_ROOT_USER: smart
       MINIO_ROOT_PASSWORD: smart-local-dev
     ports:
@@ -112,21 +124,25 @@ services:
     volumes:
       - minio-data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "/opt/bitnami/minio-client/bin/mc", "ready", "local"]
       interval: 5s
       timeout: 3s
       retries: 12
 
-  # One-shot bucket creation for the S3-compatible API.
+  # One-shot bucket creation for the S3-compatible API. Same image as the
+  # server (it bundles mc); only the entrypoint differs.
   minio-init:
-    image: quay.io/minio/mc
+    image: bitnamilegacy/minio:latest
+    user: "0:0"
+    environment:
+      HOME: /tmp
     depends_on:
       minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-        mc alias set local http://minio:9000 smart smart-local-dev &&
-        mc mb --ignore-existing local/si-files &&
+        /opt/bitnami/minio-client/bin/mc alias set local http://minio:9000 smart smart-local-dev &&
+        /opt/bitnami/minio-client/bin/mc mb --ignore-existing local/si-files &&
         echo 'bucket si-files ready'
       "
 
