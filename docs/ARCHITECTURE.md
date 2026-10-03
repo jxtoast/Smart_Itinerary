@@ -12,7 +12,7 @@ whole thing on a laptop for $0 — without asking anyone.
 |---|---|
 | How do I run and verify it? | `docs/GETTING_STARTED.md` |
 | Explain every file, every service, every design decision (narrative) | `docs/WALKTHROUGH.md` |
-| Why Postgres/MinIO/Mailpit instead of "real" AWS — is that a compromise? | `docs/LOCAL-VS-AWS.md` (no — each stand-in is the same product or the same API) |
+| Why Postgres/SeaweedFS/Mailpit instead of "real" AWS — is that a compromise? | `docs/LOCAL-VS-AWS.md` (no — each stand-in is the same product or the same API) |
 | PRD, hard constraints, task board | `docs/TASKS.md` |
 | Each service's endpoints, env vars, request walkthrough | `services/<name>/README.md` |
 
@@ -179,7 +179,7 @@ hits save; the `POST /api/itineraries` request from the diagrams above writes
 the aggregate to itinerary-db and publishes `itinerary.created`; email-service
 sends the confirmation to Mailpit and parks a reminder that fires 24 h before
 the trip starts. From there the trip can be exported to a PDF (tools-service →
-MinIO → presigned URL, downloaded browser-direct) and shared to a group or
+S3 → presigned URL, downloaded browser-direct) and shared to a group or
 email list (`itinerary.shared` → share-link emails), all through the same
 gateway front door.
 
@@ -205,7 +205,7 @@ env-var swap (§6).
 | Message Broker (RabbitMQ) | `packages/shared/src/adapters/broker.ts` + `packages/shared/src/events.ts` (topology, event schemas) | Amazon MQ (RabbitMQ engine) | `rabbitmq` container :5672 (management UI :15672) |
 | Email Service | `services/email-service/` (:8085) | ECS task, auto-scaled (CPU 1–3) | `email-service` container :8085 |
 | (Email delivery) | `packages/shared/src/adapters/mailer.ts` (SMTP) | Amazon SES (SMTP interface) | `mailpit` container :1025 (web inbox :8025) |
-| Amazon S3 (File Storage) | `packages/shared/src/adapters/storage.ts` (official `@aws-sdk/client-s3`) | S3 bucket | `minio` container :9000 (console :9001), bucket `si-files` |
+| Amazon S3 (File Storage) | `packages/shared/src/adapters/storage.ts` (official `@aws-sdk/client-s3`) | S3 bucket | `s3` container (SeaweedFS) :9000, bucket `si-files` |
 | AWS Secrets Manager | server-side env only — root `.env` (gitignored) for compose | Secrets Manager | root `.env` |
 | CI/CD: CodeCommit → Actions → ECR → ECS → CloudWatch | `.github/workflows/ci.yml` (build, tests, SAST on every push); `.github/workflows/deploy-uat.yml` (ECR push + ECS rollout; image builds `services/*/Dockerfile`) | ECR + ECS + CloudWatch via `infra/` | GitHub is the source (CodeCommit closed to new customers). CI runs today; the deploy workflow is coded but **dormant** — its preflight verifies the AWS side exists (Terraform applied) and otherwise exits green with the exact gap named. The retired monolith pipelines (`production.yaml`/`preview.yaml`, Vercel) are gone with the monolith. |
 
@@ -266,12 +266,12 @@ long-delay reminder ahead of a short one delays the short one.
 | 8081 | auth-service | Owns user profiles + travel demographics (`users`, `users_demographics`); upserts profiles from verified token claims |
 | 8082 | itinerary-service | Owns saved trip aggregates (itinerary + days + activities + accommodation); publishes `itinerary.created` |
 | 8083 | gemini-service | The AI engine: day-by-day itinerary + weather generation, the `/plan` facade (+ Amadeus flights), hotel search, reference data; audits every AI call in its own DB |
-| 8084 | tools-service | Groups + single-use email invites + share links; PDF export (pdfkit → S3/MinIO → presigned URL) |
+| 8084 | tools-service | Groups + single-use email invites + share links; PDF export (pdfkit → S3 → presigned URL) |
 | 8085 | email-service | Consumes broker events into emails (confirmation / share / invite / reminder); the only service with **no database** (AMQP-only) |
 | 5433–5436 | `auth-db` / `itinerary-db` / `gemini-db` / `tools-db` | One Postgres per service — the database-per-service rule; DDL + seed in `db/init/*.sql` |
 | 5672 / 15672 | `rabbitmq` | AMQP / management UI (`guest`/`guest`) — the `si.events` exchange and reminder queues |
 | 1025 / 8025 | `mailpit` | SMTP sink / web inbox — every email lands here instead of a real address |
-| 9000 / 9001 | `minio` | S3 API / console (`smart` / `smart-local-dev`) — exported PDFs in bucket `si-files` |
+| 9000 | `s3` | SeaweedFS S3 API (`smart` / `smart-local-dev`) — exported PDFs in bucket `si-files` |
 
 Services never import each other — they share only the contracts in
 `packages/shared` (zod DTOs, event schemas, adapters). The one legal
@@ -314,7 +314,7 @@ Every difference below is an environment variable; no service code changes.
 |---|---|---|
 | Database (×4) | `DATABASE_URL=postgres://smart:smart@auth-db:5432/smart_auth` | same var → the RDS endpoint (Terraform scaffold) |
 | Broker | `AMQP_URL=amqp://guest:guest@rabbitmq:5672` | same var → Amazon MQ (RabbitMQ engine); topology identical |
-| Object storage | `S3_ENDPOINT=http://minio:9000` + `S3_PUBLIC_ENDPOINT=http://localhost:9000` + `S3_FORCE_PATH_STYLE=true` | unset both endpoint vars (real S3 URLs are public), `S3_FORCE_PATH_STYLE=false`, bucket credentials via IAM |
+| Object storage | `S3_ENDPOINT=http://s3:8333` + `S3_PUBLIC_ENDPOINT=http://localhost:9000` + `S3_FORCE_PATH_STYLE=true` | unset both endpoint vars (real S3 URLs are public), `S3_FORCE_PATH_STYLE=false`, bucket credentials via IAM |
 | Email | `SMTP_HOST=mailpit`, `SMTP_PORT=1025` | Amazon SES SMTP interface — same mailer adapter, SES host/port/credentials |
 | Auth | `TOKEN_VERIFY_MODE=dev` + `JWT_DEV_SECRET` | `TOKEN_VERIFY_MODE=cognito` + `COGNITO_ISSUER` + `COGNITO_CLIENT_ID` — every service (gateway + 4) flips together, per `infra/cognito/RUNBOOK.md` |
 | AI keys | root `.env` (`GEMINI_API_KEY`, `AMADEUS_API_KEY`) — server-side env of gemini-service | Secrets Manager (Terraform scaffold) → same container env vars |

@@ -11,7 +11,7 @@ import { GroupDto, GroupDtoSchema, query, queryOne } from "@smart/shared/src/ser
  *   group_members    — invited/joined peers (unique per group+email, carries
  *                      the single-use invite_token until it is used)
  *   itinerary_shares — one row per share link (share_token → itinerary)
- *   pdf_exports      — audit trail of generated PDFs (storage_key in MinIO/S3)
+ *   pdf_exports      — audit trail of generated PDFs (storage_key in S3)
  *
  * Row shapes here are snake_case exactly as Postgres returns them; the
  * camelCase API shape (GroupDto from @smart/shared) is produced by
@@ -313,7 +313,7 @@ export async function findShareByToken(
 // PDF exports
 // ---------------------------------------------------------------------------
 
-/** Audit row for a generated PDF (storage_key points into MinIO/S3). */
+/** Audit row for a generated PDF (storage_key points into S3). */
 export async function recordPdfExport(
   pool: Pool,
   input: { itineraryId: string; storageKey: string; createdBy: string | null }

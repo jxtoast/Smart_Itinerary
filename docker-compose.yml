@@ -4,7 +4,7 @@
 # service here maps to a managed equivalent (see docs/TASKS.md §1.2):
 #   postgres  -> Amazon RDS (one database per service)
 #   rabbitmq  -> Amazon MQ (RabbitMQ) or SQS
-#   minio     -> Amazon S3 (same API; swap S3_ENDPOINT env var)
+#   s3        -> Amazon S3 (SeaweedFS locally, same API; unset S3_ENDPOINT)
 #   mailpit   -> Amazon SES (SMTP interface — same mailer adapter)
 #
 # Application containers (gateway + 5 services + web) are added by their own
@@ -96,53 +96,48 @@ services:
       timeout: 5s
       retries: 12
 
-  # --------------------------------------------------------------- file storage
-  minio:
-    # bitnamilegacy, not MinIO's own registries: MinIO has withdrawn the
-    # community images in three rounds — versioned tags purged from Docker
-    # Hub (2025), then the Docker Hub repos deleted outright (2026-09-12;
-    # we moved to quay.io then), then quay.io went auth-only and MinIO's
-    # own download server started returning 410 Gone (2026-10-03). The last
-    # reputable public image is Broadcom's frozen Bitnami "legacy" mirror
-    # (June 2025 build, minio + mc bundled). Bitnami quirks, adapted here:
-    # non-PATH binary paths (full paths below), runs as uid 1001 by default
-    # (we pin root, as the official image did — a named volume needs it),
-    # and HOME must be set or the healthcheck's mc can't find its config dir.
-    # If this image ever disappears, the S3-API contract with tools-service
-    # is unchanged — any S3-compatible server can take the slot.
-    image: bitnamilegacy/minio:latest
-    user: "0:0"
-    entrypoint: ["/opt/bitnami/minio/bin/minio"]
-    command: server /data --console-address ":9001"
-    environment:
-      HOME: /tmp
-      MINIO_ROOT_USER: smart
-      MINIO_ROOT_PASSWORD: smart-local-dev
+  # ---------------------------------------------------------------- file storage
+  # SeaweedFS, not MinIO: MinIO withdrew the community images in three rounds
+  # (2025 tag purge → 2026-09-12 Hub repos deleted → 2026-10-03 quay went
+  # auth-only + dl.min.io returns 410), and the last mirror (bitnamilegacy)
+  # is frozen 2025 bits. SeaweedFS is a CNCF Sandbox project (canonical repo
+  # seaweedfs/seaweedfs, ~35k stars, v4.48 on 2026-09-28) whose own CI
+  # publishes this image to Docker Hub + ghcr. Pinned by digest to the exact
+  # multi-arch build the swap was verified against: CreateBucket, PutObject,
+  # GetObject, ListBucket and presigned download all pass over the same AWS
+  # SDK path tools-service uses. S3 API is on :8333 internally, published on
+  # host :9000 as before. It accepts any credentials by default (no identity
+  # config) — dev-only, never exposed. No MinIO-style object console; the
+  # master UI is on :9333 inside the compose network if ever needed.
+  s3:
+    image: chrislusf/seaweedfs@sha256:aba492e2a4e4c90bff795745e8e660affa1f09e7650f5981bd7bccd1a06cd931
+    command: server -dir=/data -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=1024 -s3
     ports:
-      - "9000:9000"    # S3 API
-      - "9001:9001"    # Console UI
+      - "9000:8333"    # S3 API (host :9000, same as always)
     volumes:
-      - minio-data:/data
+      - s3-data:/data
     healthcheck:
-      test: ["CMD", "/opt/bitnami/minio-client/bin/mc", "ready", "local"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9333/cluster/status"]
       interval: 5s
       timeout: 3s
       retries: 12
 
-  # One-shot bucket creation for the S3-compatible API. Same image as the
-  # server (it bundles mc); only the entrypoint differs.
-  minio-init:
-    image: bitnamilegacy/minio:latest
-    user: "0:0"
+  # One-shot bucket creation. The AWS-published CLI image replaces the old
+  # mc one-shot — mc came bundled with MinIO, and SeaweedFS needs no client
+  # of its own. Head-bucket first so re-up runs stay idempotent.
+  s3-init:
+    image: amazon/aws-cli@sha256:92de75724b6a746951f0e8b915d86bbccd7cb55aff96cd0cb4f7017272160780
     environment:
-      HOME: /tmp
+      AWS_ACCESS_KEY_ID: smart
+      AWS_SECRET_ACCESS_KEY: smart-local-dev
+      AWS_DEFAULT_REGION: ap-southeast-1
     depends_on:
-      minio:
+      s3:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-        /opt/bitnami/minio-client/bin/mc alias set local http://minio:9000 smart smart-local-dev &&
-        /opt/bitnami/minio-client/bin/mc mb --ignore-existing local/si-files &&
+        aws s3api head-bucket --bucket si-files --endpoint-url http://s3:8333 2>/dev/null ||
+        aws s3api create-bucket --bucket si-files --endpoint-url http://s3:8333 &&
         echo 'bucket si-files ready'
       "
 
@@ -294,7 +289,7 @@ services:
 
   # ------------------------------------------------ application: tools-service
   # Diagram: "Tools Service (Export PDF, Sharing)" — owns groups, invites and
-  # share links in tools-db, uploads PDFs to MinIO (S3 adapter) and fetches
+  # share links in tools-db, uploads PDFs to the s3 service (S3 adapter) and fetches
   # itinerary aggregates from itinerary-service for export/share views. The
   # gateway proxies /api/tools/* here.
   tools-service:
@@ -306,9 +301,9 @@ services:
       PORT: "8084"
       DATABASE_URL: postgres://smart:smart@tools-db:5432/smart_tools
       AMQP_URL: amqp://guest:guest@rabbitmq:5672
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: http://s3:8333
       # Presigned PDF URLs are followed by the BROWSER, so they must be
-      # signed for the host's published MinIO port, not the internal name.
+      # signed for the host's published S3 port, not the internal name.
       # On real S3 leave S3_PUBLIC_ENDPOINT unset — S3 URLs are public.
       S3_PUBLIC_ENDPOINT: http://localhost:9000
       S3_REGION: ap-southeast-1
@@ -341,5 +336,5 @@ volumes:
   gemini-db-data:
   tools-db-data:
   rabbitmq-data:
-  minio-data:
+  s3-data:
   mailpit-data:

@@ -124,7 +124,7 @@ export interface ApiClient {
     createShare(request: ShareCreate): Promise<ShareResponse>;
     /** GET /api/tools/shares/:token — resolve a share token to the read-only itinerary. */
     getSharedItinerary(shareToken: string): Promise<SharedItineraryResponse>;
-    /** GET /api/tools/export/itinerary/:id/pdf — MinIO presigned URL for the browser to download. */
+    /** GET /api/tools/export/itinerary/:id/pdf — S3 presigned URL for the browser to download. */
     exportItineraryPdf(itineraryId: string): Promise<ExportPdfResponse>;
   };
 }

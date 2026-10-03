@@ -36,7 +36,7 @@ run on the host with `npm run dev:web`.
 | **email-service** | 8085 | sends every email the platform produces | none (listens to RabbitMQ) |
 | **postgres ×4** | 5433–5436 | one database per service (database-per-service) | named volumes |
 | **rabbitmq** | 5672 (AMQP), 15672 (management UI) | event broker between services | volume |
-| **minio** (+ one-shot `minio-init`) | 9000 (S3 API), 9001 (console) | file storage for exported PDFs | volume |
+| **s3** (SeaweedFS) (+ one-shot `s3-init`) | 9000 (S3 API) | file storage for exported PDFs | volume |
 | **mailpit** | 1025 (SMTP), 8025 (web UI) | catch-all SMTP server — every email lands here | volume |
 
 The one-sentence data-flow: **the browser only ever talks to `localhost:3000`
@@ -64,7 +64,7 @@ speak the same API, so "moving to AWS" is an environment-variable change.
 | Tools Service (Export PDF, Sharing) | `tools-service` container | ECS service + RDS database | `services/tools-service/` |
 | Message Broker — RabbitMQ | `rabbitmq` container | Amazon MQ for RabbitMQ (documented; not in the scaffold) | `docker-compose.yml`, `packages/shared/src/adapters/broker.ts` |
 | Email Service | `email-service` container | the same consumer; SMTP swaps Mailpit → SES | `services/email-service/`, `packages/shared/src/adapters/mailer.ts` |
-| Amazon S3 — File Storage | `minio` container (S3-compatible API) + bucket `si-files` | S3 bucket | `packages/shared/src/adapters/storage.ts`, `infra/terraform/modules/s3` |
+| Amazon S3 — File Storage | `s3` container (SeaweedFS, S3-compatible API) + bucket `si-files` | S3 bucket | `packages/shared/src/adapters/storage.ts`, `infra/terraform/modules/s3` |
 | Amazon RDS | `postgres:16` containers ×4 | 4 × `db.t4g.micro` RDS instances | `db/init/*.sql`, `infra/terraform/modules/rds` |
 | Amazon Secrets Manager | root `.env` (gitignored), per-service `.env.example` documented | Secrets Manager, injected into ECS task env | `infra/terraform/modules/secrets` |
 | CodeCommit (source) | GitHub repository | GitHub (CodeCommit is closed to new customers — documented decision) | this repo |
@@ -110,12 +110,12 @@ Fifteen services in four groups, each commented with its diagram box:
   `condition: service_healthy` — a service never boots before its schema
   exists.
 - **Stateful infrastructure** — `rabbitmq` (management UI on :15672),
-  `minio` + `minio-init` (the one-shot job that creates the `si-files`
+  `s3` + `s3-init` (the one-shot job that creates the `si-files`
   bucket), `mailpit`.
 - **The gateway** — no database, no broker: it is deliberately stateless.
   Its env is just its port, the JWT dev secret, and the four upstream URLs.
 - **The five services** — each with its `DATABASE_URL` pointing at *its own*
-  database, its `AMQP_URL`, and (tools) its S3/MinIO credentials. All keys
+  database, its `AMQP_URL`, and (tools) its S3 credentials. All keys
   are dev-only; real third-party keys (`GEMINI_API_KEY`, `AMADEUS_API_KEY`)
   come from the gitignored root `.env` and are passed only into
   gemini-service.
@@ -145,7 +145,7 @@ infrastructure adapter lives here once. Two entry points, by runtime:
 | `src/adapters/db.ts` | Postgres pools from `DATABASE_URL` + `query`/`queryOne`/`withTransaction`. Point `DATABASE_URL` at RDS and nothing else changes. |
 | `src/adapters/broker.ts` | RabbitMQ: topology (`si.events` exchange, the three queues), supervised publishing (a broker outage is logged, never thrown), and `scheduleReminder` — the TTL-based reminder trick explained in §5.3. |
 | `src/adapters/mailer.ts` | SMTP mailer; same code talks to Mailpit locally and SES on AWS. |
-| `src/adapters/storage.ts` | S3 client + presigned-URL signing; MinIO locally, S3 on AWS (`S3_ENDPOINT` unset → real S3). |
+| `src/adapters/storage.ts` | S3 client + presigned-URL signing; SeaweedFS locally, S3 on AWS (`S3_ENDPOINT` unset → real S3). |
 | `src/adapters/jwt.ts` | JWT verification (Cognito JWKS *or* locally-signed dev tokens), the `si_session` cookie extraction, `requireClaims` (401/403 gate used by every service). |
 | `src/adapters/http.ts` | express-typed `asyncHandler` (async errors become JSON 4xx/5xx instead of crashes), `errorHandler`, `parseBody` (zod → 400 with field details), `createLogger` (pino JSON). |
 | `src/dto/*.ts` | zod schemas per API area: `auth`, `itineraries`, `gemini`, `tools` — the single source of truth for every request and response body. |
@@ -434,7 +434,7 @@ seeded `country`, `airport`, `travel_type`.
 **What it does.** The collaboration toolkit: create groups, invite members by
 email token, join by token, share an itinerary to a group or to direct
 emails (producing a read-only share link), and export an itinerary as a PDF
-stored in MinIO behind a presigned URL.
+stored in S3-compatible storage behind a presigned URL.
 
 **Why it is its own service.** It is the only service that *combines* other
 services' data with its own (it fetches itinerary aggregates over HTTP and
@@ -474,7 +474,7 @@ the platform's biggest event producer (`itinerary.shared`, `group.invited`).
 | `DELETE /groups/:id` | delete (owner only) |
 | `POST /shares` | share an itinerary to a group and/or direct emails → share token, link, `itinerary.shared` event |
 | `GET /shares/:token` | resolve a share link → read-only aggregate (requires a signed-in session) |
-| `GET /export/itinerary/:id/pdf` | PDF export → presigned MinIO/S3 download URL |
+| `GET /export/itinerary/:id/pdf` | PDF export → presigned S3 download URL |
 
 **Data owned:** `tools-db` → `groups`, `group_members`, `itinerary_shares`,
 `pdf_exports`.
@@ -555,8 +555,8 @@ Every communication path in the system:
 | 14 | email-service → RabbitMQ | publish to `reminders.waiting` (per-message TTL) | after sending a confirmation | schedules the reminder; see §5.3 |
 | 15 | RabbitMQ → email-service | dead-letter `email.reminder.due` | when a `reminders.waiting` message's TTL expires | no delayed-message plugin — TTL + dead-letter-exchange only |
 | 16 | email-service → mailpit (or SES) | SMTP | every rendered email | mail lands in `localhost:8025` locally |
-| 17 | tools-service → minio (or S3) | S3 API (shared storage adapter) | PDF upload after rendering; presigned GET issuance | bucket `si-files` |
-| 18 | **Browser → minio (or S3) directly** | presigned URL | the actual PDF download | bypasses gateway+web by design — the URL is signed for the browser, valid 1 h |
+| 17 | tools-service → s3 container (or AWS S3) | S3 API (shared storage adapter) | PDF upload after rendering; presigned GET issuance | bucket `si-files` |
+| 18 | **Browser → the s3 container (or AWS S3) directly** | presigned URL | the actual PDF download | bypasses gateway+web by design — the URL is signed for the browser, valid 1 h |
 | 19 | auth-service → `auth-db` | Postgres | every profile/me/demographics op | its database only |
 | 20 | itinerary-service → `itinerary-db` | Postgres | every itinerary op | its database only |
 | 21 | gemini-service → `gemini-db` | Postgres | generation/hotel audit writes; reference reads | its database only |
@@ -785,7 +785,7 @@ npm run dev:web                   # the frontend on http://localhost:3000
 Optionally put real keys in the gitignored root `.env` (see
 `.env.example`) — without them everything works except AI/flight search
 (honest 503s). Watch the emails at `localhost:8025`, the broker at
-`:15672`, MinIO at `:9001`.
+`:15672`, the S3 API at `:9000`.
 
 **A 5-minute demo that always works (offline, mock mode):** set
 `NEXT_PUBLIC_ENABLE_MOCK_AUTH=true`, `npm run dev:web` — sign in, run the

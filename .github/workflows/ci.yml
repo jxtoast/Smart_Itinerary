@@ -111,7 +111,7 @@ jobs:
 
   # ---------------------------------------------------------------- job 3
   # Full-stack smoke on a real Docker runner: build every service image,
-  # start the compose stack (4× postgres, rabbitmq, minio, mailpit, gateway
+  # start the compose stack (4× postgres, rabbitmq, s3 (SeaweedFS), mailpit, gateway
   # + 5 services), then poll the gateway's aggregated /healthz until it
   # reports status "ok" — which only happens when ALL four service upstreams
   # (auth, itinerary, gemini, tools) answer. No API keys are needed: without

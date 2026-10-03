@@ -20,7 +20,7 @@ export interface ToolsRouteDeps {
   itineraryClient: ItineraryClient;
   /** Best-effort publisher for group.invited / itinerary.shared (RabbitMQ). */
   events: EventPublisher;
-  /** Object storage (MinIO locally / S3 on AWS) for PDF exports. */
+  /** Object storage (SeaweedFS locally / S3 on AWS) for PDF exports. */
   storage: Storage;
   /** Where share links point: `${webPublicUrl}/shared/<token>` (the web app). */
   webPublicUrl: string;

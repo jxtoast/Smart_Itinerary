@@ -9,9 +9,9 @@ import { ItineraryPayloadSchema } from "@smart/shared";
  * The route pipeline around this module is: fetch the aggregate from the
  * itinerary-service (itineraryClient) → validate it with the shared
  * ItineraryPayloadSchema (parsePdfItinerary, below) → render → upload the
- * buffer to MinIO/S3 via the shared storage adapter. Keeping the render pure
+ * buffer to S3 via the shared storage adapter. Keeping the render pure
  * (bytes in → buffer out) is what lets `scripts/render-fixture-pdf.ts` prove
- * PDF generation offline, without a database, broker or MinIO.
+ * PDF generation offline, without a database, broker or object storage.
  *
  * pdfkit's built-in Helvetica fonts are used on purpose — no font files to
  * ship, and standard-14 metrics keep the Docker image slim.
