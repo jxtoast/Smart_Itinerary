@@ -5,7 +5,7 @@ architecture diagram. It is what turns a private trip plan into something you
 can hand to other people, in two forms:
 
 - **A PDF file** — `GET /export/itinerary/:id/pdf` fetches the itinerary from
-  the itinerary-service, renders it with pdfkit, uploads it to MinIO/S3 and
+  the itinerary-service, renders it with pdfkit, uploads it to S3 (SeaweedFS locally) and
   returns a time-limited presigned download URL.
 - **A share link / group** — groups with email invites (single-use join
   tokens) and share links (`POST /shares`) that publish an `itinerary.shared`
@@ -30,11 +30,11 @@ tools-service (:8084)
    │                       (caller's own credentials forwarded — the
    │                       itinerary lives in THAT service's database)
    ├─ renderItineraryPdf   pdfkit → in-memory Buffer
-   ├─ storage.putObject    → MinIO (S3 API)  bucket si-files
+   ├─ storage.putObject    → SeaweedFS (S3 API)  bucket si-files
    ├─ recordPdfExport      → pdf_exports audit row (tools-db)
    ├─ presignGetUrl        → time-limited download URL
    ▼
-200 { downloadUrl, expiresAt, storageKey }   (browser downloads from MinIO directly)
+200 { downloadUrl, expiresAt, storageKey }   (browser downloads from storage directly)
 ```
 
 The invite/join flow, for reference:
@@ -67,7 +67,7 @@ tokens 401.
 | DELETE | `/api/tools/groups/:id` | Owner deletes the group (members cascade; shares keep their tokens with `group_id` NULL) | → 200 `{ message }` · 404 unknown/not owner |
 | POST | `/api/tools/shares` | Create a share link for an itinerary; audience = explicit emails ∪ group's joined members; publishes `itinerary.shared` | Body `ShareCreateSchema` → 201 `ShareResponseSchema` (`{ shareToken, shareUrl }`) |
 | GET | `/api/tools/shares/:token` | Resolve a share token to the read-only itinerary payload (fetches from itinerary-service) | → 200 `SharedItineraryResponseSchema` · 404 unknown token |
-| GET | `/api/tools/export/itinerary/:id/pdf` | Fetch → pdfkit → MinIO → presigned URL (+ `pdf_exports` audit row) | → 200 `ExportPdfResponseSchema` · 404 unknown itinerary · 502 itinerary-service down |
+| GET | `/api/tools/export/itinerary/:id/pdf` | Fetch → pdfkit → S3 → presigned URL (+ `pdf_exports` audit row) | → 200 `ExportPdfResponseSchema` · 404 unknown itinerary · 502 itinerary-service down |
 
 Two demo-grade conventions worth knowing:
 
@@ -87,8 +87,8 @@ Two demo-grade conventions worth knowing:
 | `PORT` | `8084` | HTTP port |
 | `DATABASE_URL` | — | Postgres of this service (`tools-db`/`smart_tools` in compose) |
 | `AMQP_URL` | — | RabbitMQ; `group.invited` + `itinerary.shared` published here (best-effort — a broker outage never fails an invite/share) |
-| `S3_ENDPOINT` | — (real S3) | MinIO in compose (`http://minio:9000`); unset on AWS |
-| `S3_PUBLIC_ENDPOINT` | — (real S3) | Browser-facing endpoint presigned URLs are signed for — compose sets `http://localhost:9000` because the browser cannot resolve the internal `minio` name; unset on AWS (S3 URLs are public) |
+| `S3_ENDPOINT` | — (real S3) | SeaweedFS in compose (`http://s3:8333`); unset on AWS |
+| `S3_PUBLIC_ENDPOINT` | — (real S3) | Browser-facing endpoint presigned URLs are signed for — compose sets `http://localhost:9000` because the browser cannot resolve the internal `s3` name; unset on AWS (S3 URLs are public) |
 | `S3_BUCKET` / `S3_REGION` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` / `S3_FORCE_PATH_STYLE` | see `packages/shared/.env.example` | storage adapter config |
 | `S3_PRESIGN_TTL_SECONDS` | `3600` | Lifetime of the presigned download URL (also reported as `expiresAt`) |
 | `ITINERARY_SERVICE_URL` | `http://localhost:8082` | Internal fetch of itinerary aggregates |
@@ -117,14 +117,14 @@ npm run render-fixture-pdf --workspace @smart/tools-service
 |---|---|
 | Tools Service (Export PDF, Sharing) | this Express app (`src/`) |
 | Amazon RDS (Tools DB) | `src/repositories/toolsRepository.ts` + `db/init/tools-service.sql` |
-| Amazon S3 (File Storage) | `@smart/shared` storage adapter (`src/pdf` + `src/routes/export.routes.ts`); MinIO locally |
+| Amazon S3 (File Storage) | `@smart/shared` storage adapter (`src/pdf` + `src/routes/export.routes.ts`); SeaweedFS locally |
 | Message Broker (RabbitMQ) | `src/eventPublisher.ts` via the shared broker adapter (`si.events` exchange) |
 | Amazon Cognito | JWT verified by `@smart/shared`'s `requireClaims` |
 
 ## Run
 
 ```bash
-# whole stack (recommended — provides tools-db + rabbitmq + minio + itinerary-service):
+# whole stack (recommended — provides tools-db + rabbitmq + s3 + itinerary-service):
 docker compose up -d --build tools-service
 
 # or bare against the compose infrastructure:

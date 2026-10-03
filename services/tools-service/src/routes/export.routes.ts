@@ -13,11 +13,11 @@ import { parsePdfItinerary, renderItineraryPdf } from "../pdf/renderItineraryPdf
  *
  * Pipeline for GET /export/itinerary/:id/pdf:
  *   itinerary-service (internal HTTP fetch) → pdfkit render (in-memory
- *   buffer) → MinIO/S3 upload (shared storage adapter) → pdf_exports audit
+ *   buffer) → S3 upload (shared storage adapter) → pdf_exports audit
  *   row → presigned download URL handed back to the caller.
  *
  * The web Export-PDF button (T2.5) and any Bearer-token client hit this
- * through the gateway; the download itself happens browser → MinIO/S3
+ * through the gateway; the download itself happens browser → S3
  * directly via the presigned URL, so no PDF bytes flow through the gateway.
  */
 export function createExportRouter(deps: ToolsRouteDeps): Router {
@@ -52,7 +52,7 @@ export function createExportRouter(deps: ToolsRouteDeps): Router {
       // 2. Validate against the shared contract, then render in memory.
       const pdfBuffer = await renderItineraryPdf(parsePdfItinerary(aggregate));
 
-      // 3. Upload to MinIO/S3 through the shared storage adapter. Millisecond
+      // 3. Upload to S3 through the shared storage adapter. Millisecond
       //    timestamps keep repeated exports of one itinerary distinct.
       const storageKey = `${PDF_KEY_PREFIX}/${itineraryId}/${Date.now()}.pdf`;
       await deps.storage.putObject(storageKey, pdfBuffer, "application/pdf");
@@ -65,7 +65,7 @@ export function createExportRouter(deps: ToolsRouteDeps): Router {
         createdBy: claims.sub,
       });
 
-      // 5. Hand back a time-limited download URL (browser → MinIO directly).
+      // 5. Hand back a time-limited download URL (browser → storage directly).
       const downloadUrl = await deps.storage.presignGetUrl(storageKey, PRESIGN_TTL_SECONDS);
       res.status(200).json(
         ExportPdfResponseSchema.parse({

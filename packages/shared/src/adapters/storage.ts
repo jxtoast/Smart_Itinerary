@@ -8,16 +8,16 @@ import { env, envInt } from "./config";
 
 /**
  * S3-compatible object storage (diagram: "Amazon S3 — File Storage").
- * Locally this talks to MinIO; on AWS leave S3_ENDPOINT unset and the same
+ * Locally this talks to SeaweedFS (S3-compatible); on AWS leave S3_ENDPOINT unset and the same
  * code talks to real S3. Only the env vars change.
  *
  * Env: S3_ENDPOINT (optional), S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID,
- *      S3_SECRET_ACCESS_KEY, S3_FORCE_PATH_STYLE (MinIO: true),
+ *      S3_SECRET_ACCESS_KEY, S3_FORCE_PATH_STYLE (local S3-compatible servers: true),
  *      S3_PUBLIC_ENDPOINT (optional)
  *
  * S3_PUBLIC_ENDPOINT exists because a presigned URL embeds the host it was
  * signed for, and the browser — not this service — follows it. Under Docker
- * compose the service connects over the internal network ("http://minio:9000"),
+ * compose the service connects over the internal network ("http://s3:8333"),
  * which a host browser cannot resolve, so compose sets the public endpoint to
  * the published port ("http://localhost:9000"). On real S3 the endpoints are
  * naturally public: leave it unset and URLs are signed for S3 itself.
@@ -51,7 +51,7 @@ export function createStorage(client?: S3Client, presignClient?: S3Client): Stor
 
   // The data path uses `s3`; URLs are signed for the browser-facing host.
   // Same credentials/region — only the host in the signature differs, and
-  // MinIO validates against the Host header the browser actually sends.
+  // The storage server validates against the Host header the browser sends.
   const presigner =
     presignClient ??
     (publicEndpoint

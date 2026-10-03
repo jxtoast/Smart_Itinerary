@@ -6,7 +6,7 @@
  * pdf_exports (db/init/tools-service.sql) and serves:
  *   /api/tools/groups   — groups CRUD + email-invite token + join
  *   /api/tools/shares   — share links (record + token + itinerary.shared)
- *   /api/tools/export   — itinerary → pdfkit → MinIO/S3 → presigned URL
+ *   /api/tools/export   — itinerary → pdfkit → S3 → presigned URL
  *
  * The itinerary data itself lives in the itinerary-service's database, so
  * PDF export and the read-only share view fetch the aggregate over HTTP
@@ -34,8 +34,8 @@ const logger = createLogger(serviceName);
 
 // pg connects lazily, so an unreachable database surfaces as per-request
 // errors (logged, 500) rather than a process that never boots. Same idea for
-// the S3/MinIO client: instantiating it opens no connection, so the service
-// boots fine before MinIO is up and export requests fail honestly instead.
+// the S3 client: instantiating it opens no connection, so the service
+// boots fine before the storage service is up and export requests fail honestly instead.
 const deps = {
   verifier: createTokenVerifier(),
   pool: createDbPool(),

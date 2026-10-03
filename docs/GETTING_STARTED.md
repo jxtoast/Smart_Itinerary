@@ -7,7 +7,7 @@ no prior microservices experience assumed.
 > Looking for the architecture (why services are split this way, how it maps to
 > the AWS diagram)? See `docs/ARCHITECTURE.md` (diagram mirror, box↔code
 > mapping, event catalogue), `docs/TASKS.md` §1 (the PRD) and each service's own
-> `services/<name>/README.md`. Wondering why the stack uses Postgres/MinIO/
+> `services/<name>/README.md`. Wondering why the stack uses Postgres/SeaweedFS/
 > Mailpit instead of "real" AWS, or what a dollar amount in the app means?
 > See `docs/LOCAL-VS-AWS.md`. This file is only about **running and checking** it.
 
@@ -29,13 +29,13 @@ into **microservices** that mirror a reference AWS architecture:
                                    │
                                    ▼
                         RabbitMQ (events) ──► email-service :8085 ──► Mailpit (SMTP)
-                                   tools-service ──► MinIO (S3-compatible file storage)
+                                   tools-service ──► S3 / SeaweedFS (file storage)
 ```
 
 On AWS these boxes would be ECS containers, RDS databases, Amazon MQ, S3 and
 SES. For development we run the **same architecture on your laptop for $0**:
 each box becomes a Docker container, and each AWS product is swapped for a
-local, API-compatible equivalent (Postgres ↔ RDS, MinIO ↔ S3, Mailpit ↔ SES).
+local, API-compatible equivalent (Postgres ↔ RDS, SeaweedFS ↔ S3, Mailpit ↔ SES).
 The swap is environment variables only — the code doesn't change.
 
 ## 2. Why Docker? Why `docker compose up --build -d`?
@@ -289,7 +289,7 @@ and real Google logins go through the same upsert path.
 |---|---|---|
 | `http://localhost:15672` | **RabbitMQ management** (login `guest` / `guest`) | See the `si.events` exchange and message publish rates. Saving an itinerary publishes `itinerary.created` here — the email service (once running) consumes it and sends mail |
 | `http://localhost:8025` | **Mailpit** — fake inbox | Every email the system "sends" lands here instead of real inboxes. Free, instant, no spam risk |
-| `http://localhost:9001` | **MinIO console** (login `smart` / `smart-local-dev`) | S3-compatible file storage; exported itinerary PDFs land in the `si-files` bucket |
+| `http://localhost:9000` | **SeaweedFS S3 API** (credentials `smart` / `smart-local-dev`) | S3-compatible file storage; exported itinerary PDFs land in the `si-files` bucket |
 
 ## 7. Ports cheat-sheet
 
@@ -301,7 +301,7 @@ and real Google logins go through the same upsert path.
 | 5433–5436 | the four Postgres databases (one per service — mirroring RDS ×4) |
 | 5672 / 15672 | RabbitMQ AMQP / management UI |
 | 1025 / 8025 | Mailpit SMTP / web inbox |
-| 9000 / 9001 | MinIO S3 API / console |
+| 9000 | SeaweedFS S3 API |
 
 ## 8. Useful commands
 

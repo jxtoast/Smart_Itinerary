@@ -17,7 +17,7 @@ swap table at the top of `variables.tf` is the map).
 | `modules/ecr` | "ECR" (CI/CD) | 6 repos, one per service, compose names |
 | `modules/ecs` | "API Gateway Instance 1/2" + the 5 service boxes | Fargate cluster, 6 task definitions + services; **gateway `desired_count = 2`** behind the ALB; Cloud Map DNS (compose's hostnames); `/healthz` container health checks; images from ECR; **auto-scaling** on every service (target-tracking CPU: gateway 2–4, rest 1–3) — the diagram's "auto-scaled" |
 | `modules/rds` | "RDS" (database-per-service) | 4× `db.t4g.micro` Postgres 16 — `smart_auth`, `smart_itinerary`, `smart_gemini`, `smart_tools` |
-| `modules/s3` | "Amazon S3 (File Storage)" | 1 private bucket for PDF exports (the MinIO swap) |
+| `modules/s3` | "Amazon S3 (File Storage)" | 1 private bucket for PDF exports (the local S3-compatible swap) |
 | `modules/secrets` | "AWS Secrets Manager" | `GEMINI_API_KEY`, `AMADEUS_API_KEY`, `JWT_DEV_SECRET` (generated), `AMQP_URL`, SES SMTP creds, 4× `DATABASE_URL` (composed from RDS) |
 | `modules/alb` | "Route 53 → WAF → ALB" | Public ALB → gateway target group (`/healthz`); Route53 + WAF + HTTPS listener are count-gated, **default OFF** |
 | `modules/cloudwatch` | "CloudWatch" (CI/CD) | 6 log groups (7-day retention), SNS topic, 3 alarm families (no healthy gateway / ALB 5xx / RDS CPU) |

@@ -5,7 +5,7 @@
  *
  * Click flow: GET /api/tools/export/itinerary/:id/pdf (through the gateway,
  * JWT-authenticated) answers { downloadUrl, expiresAt, storageKey } where
- * downloadUrl is a MinIO/S3 PRESIGNED URL — the browser then downloads the
+ * downloadUrl is a S3 PRESIGNED URL — the browser then downloads the
  * PDF straight from object storage, so no file bytes ever pass through the
  * web server or the gateway, and no credentials are needed for that hop
  * (the signature in the URL is the authorization). The button opens the URL
@@ -33,7 +33,7 @@ export default function ExportPdfButton({ itineraryId }: ExportPdfButtonProps) {
     try {
       const pdf = await getSessionApiClient().tools.exportItineraryPdf(itineraryId);
       setResult(pdf);
-      // Browser → MinIO directly; a PDF answers inline as a new tab. A falsy
+      // Browser → storage directly; a PDF answers inline as a new tab. A falsy
       // return means the popup was blocked — the link below is the fallback.
       window.open(pdf.downloadUrl, "_blank", "noopener");
     } catch (caught) {

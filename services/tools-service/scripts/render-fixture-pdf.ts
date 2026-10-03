@@ -1,6 +1,6 @@
 /**
  * render-fixture-pdf.ts — offline proof that tools-service can generate real
- * PDFs (T1.6 verification requirement; the full HTTP → MinIO round trip is
+ * PDFs (T1.6 verification requirement; the full HTTP → S3 round trip is
  * proven at integration when docker compose is up).
  *
  * It exercises exactly the pipeline the export route runs, minus the network:

@@ -95,7 +95,7 @@ service's endpoints table is also its public API surface through the gateway.
 ## Running locally
 
 ```bash
-# 1. Infrastructure (databases, broker, MinIO, Mailpit) — not needed to boot the gateway
+# 1. Infrastructure (databases, broker, S3, Mailpit) — not needed to boot the gateway
 docker compose up -d
 
 # 2. Point the gateway at services running bare on localhost (defaults from .env.example)

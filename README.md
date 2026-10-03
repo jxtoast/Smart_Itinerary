@@ -13,7 +13,7 @@ and the full task-by-task story lives in [`docs/TASKS.md`](docs/TASKS.md).
 ## The two rules that shape everything
 
 1. **$0, local-first.** The whole stack runs on your laptop with
-   `docker compose up` and costs nothing: Postgres instead of RDS, MinIO
+   `docker compose up` and costs nothing: Postgres instead of RDS, SeaweedFS
    instead of S3, Mailpit instead of SES, a local JWT dev-mode instead of a
    Cognito pool (real Cognito is wired and documented, just not required).
 2. **AWS-swappable.** Every local piece speaks the API of the AWS product it
@@ -31,7 +31,7 @@ and the full task-by-task story lives in [`docs/TASKS.md`](docs/TASKS.md).
                         └──► tools-service     :8084 ──► tools-db     (Postgres)
                                    │                        │
                                    ▼                        ▼
-                        RabbitMQ (si.events)          MinIO (PDF exports)
+                        RabbitMQ (si.events)          SeaweedFS (PDF exports)
                                    │
                                    ▼
                         email-service :8085 ──► Mailpit (SMTP inbox)
@@ -67,7 +67,7 @@ services/gateway/             # 8080 · JWT verify + routing to the services bel
 services/auth-service/        # 8081 · users, profiles, demographics
 services/itinerary-service/   # 8082 · itineraries + days/activities/stays
 services/gemini-service/      # 8083 · AI generation, hotels, flights, reference data
-services/tools-service/       # 8084 · groups, share links, PDF export (MinIO)
+services/tools-service/       # 8084 · groups, share links, PDF export (S3)
 services/email-service/       # 8085 · consumes events, sends mail, reminder scheduler
 packages/shared/              # zod DTOs, event schemas, AWS-swappable adapters
 packages/api-client/          # typed browser client (+ offline mock mode)
@@ -86,7 +86,7 @@ docs/                         # TASKS.md (the board) · WALKTHROUGH · ARCHITECT
 | http://localhost:8081–8085 | auth · itinerary · gemini · tools · email services |
 | http://localhost:15672 | RabbitMQ management UI (guest/guest) |
 | http://localhost:8025 | Mailpit — every email the system sends lands here |
-| http://localhost:9001 | MinIO console — exported PDFs land here (smart/smart-local-dev) |
+| http://localhost:9000 | SeaweedFS S3 API — exported PDFs land in bucket `si-files` (smart/smart-local-dev) |
 
 ## Development
 
