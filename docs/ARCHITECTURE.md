@@ -291,7 +291,7 @@ and re-verifies it in the service (`packages/shared/src/adapters/jwt.ts`,
 |---|---|---|
 | Token shape | HS256, signed with `JWT_DEV_SECRET` | RS256 from the Cognito user pool, verified against its JWKS (`COGNITO_ISSUER` + `COGNITO_CLIENT_ID`) |
 | Who issues tokens | the gateway's `POST /api/auth/dev-token` (public, exists **only** in dev mode — answers 404 in cognito mode; body optional, defaults to the seeded demo user) | Amazon Cognito: `/auth/start` → hosted UI (Google federation, PKCE) → `/auth/callback` does the server-side code exchange → sets `si_session` |
-| Used by | local dev, Cypress, curl demos | real sign-ins (pool ships as `infra/cognito/` Terraform — see its RUNBOOK) |
+| Used by | local dev, Cypress, curl demos | real sign-ins (pool ships as `infra/terraform/modules/cognito/` Terraform — see its RUNBOOK) |
 
 A third mode is **purely frontend** and often confused with dev-token mode:
 `NEXT_PUBLIC_ENABLE_MOCK_AUTH=true` makes the web app's `AuthContext` return a
@@ -316,7 +316,7 @@ Every difference below is an environment variable; no service code changes.
 | Broker | `AMQP_URL=amqp://guest:guest@rabbitmq:5672` | same var → Amazon MQ (RabbitMQ engine); topology identical |
 | Object storage | `S3_ENDPOINT=http://s3:8333` + `S3_PUBLIC_ENDPOINT=http://localhost:9000` + `S3_FORCE_PATH_STYLE=true` | unset both endpoint vars (real S3 URLs are public), `S3_FORCE_PATH_STYLE=false`, bucket credentials via IAM |
 | Email | `SMTP_HOST=mailpit`, `SMTP_PORT=1025` | Amazon SES SMTP interface — same mailer adapter, SES host/port/credentials |
-| Auth | `TOKEN_VERIFY_MODE=dev` + `JWT_DEV_SECRET` | `TOKEN_VERIFY_MODE=cognito` + `COGNITO_ISSUER` + `COGNITO_CLIENT_ID` — every service (gateway + 4) flips together, per `infra/cognito/RUNBOOK.md` |
+| Auth | `TOKEN_VERIFY_MODE=dev` + `JWT_DEV_SECRET` | `TOKEN_VERIFY_MODE=cognito` + `COGNITO_ISSUER` + `COGNITO_CLIENT_ID` — every service (gateway + 4) flips together, per `infra/terraform/modules/cognito/RUNBOOK.md` |
 | AI keys | root `.env` (`GEMINI_API_KEY`, `AMADEUS_API_KEY`) — server-side env of gemini-service | Secrets Manager (Terraform scaffold) → same container env vars |
 | Deployment | `docker compose up --build -d` | ECS via the `infra/` Terraform (gateway `desired_count = 2`, one task per service, RDS ×4, S3, ALB) — checked in, **never applied**, $0 |
 | CI | GitHub Actions (`.github/workflows/ci.yml`) — typecheck ×9, contract smokes, web build, full compose smoke, Cypress (mock auth), Aikido SAST | `deploy-uat.yml` completes the pipeline: images → ECR, ECS rollout (dormant until Terraform is applied) |
@@ -324,7 +324,8 @@ Every difference below is an environment variable; no service code changes.
 Runbooks that turn this table into clicks:
 
 - `docs/GETTING_STARTED.md` — run the local stack and verify every hop
-- `infra/cognito/RUNBOOK.md` — create the real Cognito pool (~10 min, free
-  tier, `terraform destroy` afterwards) and flip the services to cognito mode
+- `infra/terraform/modules/cognito/RUNBOOK.md` — create the real Cognito pool
+  (~10 min, free tier, `terraform destroy` afterwards) and flip the services to
+  cognito mode
 - `docs/LOCAL-VS-AWS.md` — why each compose stand-in is the real thing, and
   what actually (optionally) reaches the internet

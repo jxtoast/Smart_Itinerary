@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       "Incomplete sign-in response",
       "The callback is missing the code, state, or the transient sign-in " +
         "cookies. Retry from the home page — and make sure this origin is " +
-        "registered in the pool's callback_urls (infra/cognito)."
+        "registered in the pool's callback_urls (infra/terraform/modules/cognito)."
     );
   }
   // CSRF guard: the state coming back must be the one we handed out.
