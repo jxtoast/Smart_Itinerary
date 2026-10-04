@@ -18,7 +18,7 @@ no prior microservices experience assumed.
 Smart Itinerary is a trip-planning app (AI-generated itineraries, hotels,
 flights, group sharing, email reminders). It started life as a **Next.js
 monolith** — one app doing everything, including talking to the database
-straight from the browser. This branch (`microservices-develop`) re-platforms it
+straight from the browser. The `main` branch re-platforms it
 into **microservices** that mirror a reference AWS architecture:
 
 ```
@@ -62,8 +62,8 @@ calls `http://auth-service:8081`), and isolated storage volumes.
 So the routine after every `git pull` is:
 
 ```bash
-git checkout microservices-develop
-git pull origin microservices-develop   # get the latest integrated code
+git checkout main
+git pull origin main                    # get the latest integrated code
 docker compose up --build -d            # rebuild + (re)start everything that changed
 docker compose ps                       # wait until every service shows "healthy"
 ```
@@ -72,7 +72,7 @@ docker compose ps                       # wait until every service shows "health
 
 - **Docker Desktop** (running) — provides the `docker` and `docker compose` commands
 - **Node.js 20+** — only for running the web app (`npm run dev:web`) and tests; the backend services run entirely in Docker
-- Free ports: 3000, 8080–8085, 5433–5436, 5672, 8025, 9000, 9001, 15672
+- Free ports: 3000, 8080–8085, 5433–5436, 5672, 8025, 9000, 15672
 
 ### 3.1 Optional: free AI keys — the root `.env`
 

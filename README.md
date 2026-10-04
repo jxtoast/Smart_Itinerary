@@ -4,7 +4,7 @@ AI-assisted trip planning: generate a day-by-day itinerary with weather and
 flights, search hotels, save trips, share them with a group, export a PDF, and
 get email reminders before departure.
 
-This branch (`microservices-develop`) re-platforms the original Next.js
+The `main` branch re-platforms the original Next.js
 **monolith** into **microservices** that mirror a reference AWS architecture
 (ECS services behind an ALB, Cognito auth, RabbitMQ, S3, RDS). The re-platform
 follows the strangler pattern — the app stayed working after every merged task —
