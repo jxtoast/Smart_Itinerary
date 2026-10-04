@@ -174,6 +174,7 @@ domain prefix.
 | 401 from `/api/*` right after a successful sign-in | One of the services is still on `TOKEN_VERIFY_MODE=dev` (step 4's box) — all services must flip together. |
 | A service crash-loops after the flip (`requireEnv` in the logs) | `TOKEN_VERIFY_MODE=cognito` is set but `COGNITO_ISSUER`/`COGNITO_CLIENT_ID` are missing/empty in the root `.env` — the adapter fails fast at boot instead of 401-ing every request. Fill both, then `docker compose up -d --force-recreate <service>`. |
 | Logout: Cognito page says `logout_uri` not allowed | The origin you sign out from is missing from `callback_urls`/`logout_urls` in `variables.tf` defaults → re-apply. |
+| Logout: Cognito error page `Required parameters missing` | The app sent a `logout_uri` that doesn't EXACTLY match a whitelisted sign-out URL — Cognito compares strings, so a trailing slash counts (`http://localhost:3000/` ≠ `http://localhost:3000`). Fixed in `apps/web/app/auth/signout/route.ts` (sends the bare origin); if you change `logout_urls`, keep the app's value and the whitelist identical. |
 | `npm run dev:web` sign-in 503 page listing missing env | `apps/web/.env` is missing `COGNITO_HOSTED_UI_DOMAIN`/`COGNITO_CLIENT_ID` (step 4). |
 
 ## Creating a local test user (optional, no Google needed)

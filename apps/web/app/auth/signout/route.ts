@@ -28,7 +28,10 @@ export async function GET(request: NextRequest) {
   if (cognitoMode && config) {
     const logoutUrl = new URL(`${config.hostedUiDomain}/logout`);
     logoutUrl.searchParams.set("client_id", config.clientId);
-    logoutUrl.searchParams.set("logout_uri", `${request.nextUrl.origin}/`);
+    // logout_uri must EXACTLY match a URL whitelisted in the pool's
+    // logout_urls (Terraform default: the bare origin, no trailing slash).
+    // `origin + "/"` fails that match and Cognito bounces to an error page.
+    logoutUrl.searchParams.set("logout_uri", request.nextUrl.origin);
     destination.href = logoutUrl.toString();
   }
 
