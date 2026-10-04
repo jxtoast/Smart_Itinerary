@@ -79,22 +79,24 @@ docs/ARCHITECTURE.md          # diagram mirror + mapping + runbooks
 ## Branching model
 
 ```
-main  ←  microservices-develop  ←  task/<id>-<slug> branches
+main  ←  task/<id>-<slug> branches   (PR → CI → merge)
 ```
 
-- **`microservices-develop`** is the integration branch for the entire re-platform.
-  Every task branch merges into it; it merges into `main` when the re-platform
-  is complete (user's call per phase). Branched from `main` in Phase 0, so it
-  carries the monolith (still working) plus all re-platform commits.
+- **`main` is the trunk.** The re-platform merged on 2026-09-11 (PR #132);
+  since then every task branches off `main` and lands back on it via PR,
+  with CI gating every merge.
+- **`microservices-develop` is archived** — it was the re-platform's
+  integration branch back when `main` still held the old monolith. It now
+  exists for history only: never branch from it and never target it in a PR.
 - The pre-existing team `develop` branch is **not** used by this effort — leave it
   untouched.
-- Task branches: `task/<id>-<slug>`, based on the latest `microservices-develop`
+- Task branches: `task/<id>-<slug>`, based on the latest `origin/main`
   (or on a dependency task's branch when that hasn't merged yet — note it in the
   tracker Notes).
 - **Parallel agents onboard automatically**: every branch cut from
-  `microservices-develop` carries this file (PRD, protocol, code standards, board).
+  `main` carries this file (PRD, protocol, code standards, board).
   Because several agents hold copies at once, always merge/rebase the latest
-  `microservices-develop` into your branch **before claiming a task**, and edit
+  `origin/main` into your branch **before claiming a task**, and edit
   **only your own task's row** — this keeps tracker merge conflicts rare and
   mechanical (adjacent rows can conflict; resolve by keeping both `done` rows).
 
@@ -102,8 +104,9 @@ main  ←  microservices-develop  ←  task/<id>-<slug> branches
 
 ## Service conventions (Phase 1 — applies to every service task)
 
-All Phase 1 agents branch from `microservices-develop` and follow these exactly,
-so parallel branches land merge-clean:
+All Phase 1 agents branched from the then-integration branch
+(`microservices-develop`; new work branches from `main` — see Branching model)
+and follow these exactly, so parallel branches land merge-clean:
 
 1. **Port + env**: service listens on the port from §1.4; `SERVICE_NAME` and
    `PORT` env vars; env-var NAMES exactly as in `packages/shared/.env.example`.
@@ -136,9 +139,8 @@ so parallel branches land merge-clean:
    (`<db-host>`/`<db-name>` per service: auth-db/smart_auth · itinerary-db/smart_itinerary · gemini-db/smart_gemini · tools-db/smart_tools. gateway + email-service drop the DB lines; email-service keeps AMQP only.)
 3. **No changes to `packages/shared`** — if a contract is missing, extend your own
    service only if trivially local; otherwise flag it in your tracker Notes.
-4. **No merging into `microservices-develop` and no starting other tasks** — push
-   your `task/*` branch and stop. The lead workspace integrates branch-by-branch
-   with verification between each.
+4. **No merging into `main` and no starting other tasks** — push
+   your `task/*` branch and open a PR; CI gates the merge into `main`.
 5. **Offline verification honesty**: Postgres/RabbitMQ are not runnable in agent
    workspaces (no Docker). Verify locally what is real (typecheck, service boots
    via `tsx`, `/healthz`, zod 400s, SQL reviewed against `db/init/*.sql`), and
@@ -164,7 +166,7 @@ so parallel branches land merge-clean:
    are all `done`, then set its row to `in-progress` with your branch name
    (commit this tracker change on your branch).
 2. **Branch naming** — `task/<id>-<slug>`, e.g. `task/t1.2-auth-service`.
-   Base your branch on the latest `microservices-develop` (or the branch of a
+   Base your branch on the latest `origin/main` (or the branch of a
    dependency task if that hasn't merged — note it in your PR).
 3. **Scope discipline** — touch only the files your task owns. Cross-service needs
    go through `packages/shared` contracts; if a contract is missing, extend
