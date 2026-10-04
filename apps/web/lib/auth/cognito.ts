@@ -29,7 +29,7 @@ export const AUTH_NEXT_COOKIE = "si_auth_next";
 /** Sign-in handoff cookies are single-use: 10 minutes to finish the redirect. */
 export const AUTH_HANDOFF_TTL_SECONDS = 600;
 
-/** Cognito id_tokens default to 1h (set on the app client in infra/cognito). */
+/** Cognito id_tokens default to 1h (set on the app client in infra/terraform/modules/cognito). */
 export const SESSION_FALLBACK_TTL_SECONDS = 3600;
 
 const AUTH_SCOPES = "openid email profile";
@@ -58,7 +58,7 @@ export interface CognitoConfig {
   clientId: string;
 }
 
-/** Reads the pool config produced by infra/cognito; null = not configured,
+/** Reads the pool config produced by infra/terraform/modules/cognito; null = not configured,
  * which the routes turn into an honest "sign-in not configured" page. */
 export function readCognitoConfig(): CognitoConfig | null {
   const hostedUiDomain = process.env.COGNITO_HOSTED_UI_DOMAIN?.replace(/\/+$/, "");
@@ -111,7 +111,7 @@ export function buildAuthorizeUrl(
   authorize.searchParams.set("scope", AUTH_SCOPES);
   authorize.searchParams.set("code_challenge", params.codeChallenge);
   authorize.searchParams.set("code_challenge_method", "S256");
-  // Google is the pool's only IdP (infra/cognito) — skip the account-picker
+  // Google is the pool's only IdP (infra/terraform/modules/cognito) — skip the account-picker
   // step and hand the user straight to Google's consent screen.
   authorize.searchParams.set("identity_provider", "GOOGLE");
   return authorize.toString();

@@ -72,7 +72,7 @@ docker compose ps                       # wait until every service shows "health
 
 - **Docker Desktop** (running) — provides the `docker` and `docker compose` commands
 - **Node.js 20+** — only for running the web app (`npm run dev:web`) and tests; the backend services run entirely in Docker
-- Free ports: 3000, 8080–8085, 5433–5436, 5672, 8025, 9000, 15672
+- Free ports: 3000, 8080–8085, 5433–5436, 5672, 1025, 8025, 9000, 15672
 
 ### 3.1 Optional: free AI keys — the root `.env`
 
@@ -144,22 +144,24 @@ curl -s http://localhost:8080/healthz
 ```
 
 The gateway checks itself **and** every upstream service, and reports the truth
-per service. While the system is partially built (services land in waves — see
-`docs/TASKS.md` for current status) you'll see something like:
+per service. On a complete, healthy stack you'll get:
 
 ```json
-{"status":"degraded","service":"gateway","upstreams":{
-  "auth-service":{"status":"up","url":"http://auth-service:8081","latencyMs":2},
-  "itinerary-service":{"status":"up","url":"http://itinerary-service:8082","latencyMs":2},
-  "gemini-service":{"status":"down","url":"http://gemini-service:8083","reason":"fetch failed"},
-  "tools-service":{"status":"down","url":"http://tools-service:8084","reason":"fetch failed"}}}
+{"status":"ok","service":"gateway","upstreams":{
+  "auth-service":{"status":"up","url":"http://auth-service:8081","latencyMs":3},
+  "itinerary-service":{"status":"up","url":"http://itinerary-service:8082","latencyMs":4},
+  "tools-service":{"status":"up","url":"http://tools-service:8084","latencyMs":3},
+  "gemini-service":{"status":"up","url":"http://gemini-service:8083","latencyMs":4}}}
 ```
 
-**How to read this:** `up` = that container answered. `down` with
-`"fetch failed"` = *nothing is listening at that address yet* — a service that
-hasn't been built/started, **not an error**. The overall status is `degraded`
-rather than `ok` whenever any upstream is down; the gateway itself stays up.
-This is deliberate: one dead dependency must never crash the front door.
+(Those are the four services the gateway routes to; email-service has no
+HTTP API to route to — it consumes broker events, §6.)
+
+If a container is down or still booting, its entry flips to `"down"` with
+`"reason":"fetch failed"` and the overall status becomes `"degraded"` —
+*nothing is listening at that address yet*, **not an error in the gateway**;
+the front door stays up. This is deliberate: one dead dependency must never
+crash it. (`docker compose ps` tells you which container to look at.)
 
 ### 4.2 Get a token — `POST /api/auth/dev-token`
 
@@ -169,7 +171,7 @@ setup, so in development the gateway can **mint mock tokens**:
 ```bash
 curl -s -X POST http://localhost:8080/api/auth/dev-token \
      -H "Content-Type: application/json" \
-     -d '{"sub":"11111111-2222-3333-4444-555555555555","email":"demo@test.local","name":"Demo User"}'
+     -d '{"sub":"11111111-2222-4333-8444-555555555555","email":"demo@test.local","name":"Demo User"}'
 ```
 
 Response: `201 {"token":"eyJ...","claims":{...}}`. Three things to know:
@@ -180,7 +182,14 @@ Response: `201 {"token":"eyJ...","claims":{...}}`. Three things to know:
 - `sub` is the user id the rest of the system will see, and it **must be a
   UUID** — auth-service upserts it into a `uuid` database column, so a plain
   word like `"dev-user"` fails with a 500 (reproduced and fixed: the default is
-  now the seeded demo user). Omitting the body entirely is the easy path: it
+  now the seeded demo user). It must also be a *fully RFC-valid* UUID —
+  Postgres is lenient about the version/variant bits, but the services'
+  zod schemas are not: a shape-plausible id like
+  `…-3333-4444-…` (variant nibble `4`, not `8`/`9`/`a`/`b`) passes
+  `GET /api/auth/me` yet is rejected with `400 Invalid UUID` by
+  itinerary-service. The examples in this doc use
+  `11111111-2222-4333-8444-555555555555`, which both accept. Omitting the body
+  entirely is the easy path: it
   mints a token for the seeded mock-auth user `1b9472e1-a85e-43bf-9898-6f44e2b20809`
   ("Test User" from `db/init/auth-service.sql`), so `GET /api/auth/me` returns a
   ready-made profile.
@@ -214,21 +223,24 @@ docker compose exec auth-db psql -U smart -d smart_auth -c "SELECT id, email FRO
 # save (note: userId must match the sub you minted the token with)
 curl -s -X POST http://localhost:8080/api/itineraries \
      -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-     -d '{"userId":"11111111-2222-3333-4444-555555555555",
+     -d '{"userId":"11111111-2222-4333-8444-555555555555",
           "itinerary":{"id":null,"sourceCountry":"Singapore","destination":"Tokyo",
             "startDate":"2026-10-01","endDate":"2026-10-05","estimatedTotalCost":2500,
             "importantNotes":[],"demographics":{},"accommodation":[],"itineraryDays":[]},
           "weatherForecast":{}}'
-# → 201 {"itineraryId":"1"}
+# → 201 {"itineraryId":"<a fresh UUID>"}
 
 # read it back
 curl -s -H "Authorization: Bearer $TOKEN" \
-     http://localhost:8080/api/itineraries/user/11111111-2222-3333-4444-555555555555
-# → 200 {"itineraries":[{"id":"1","destination":"Tokyo",...}]}
+     http://localhost:8080/api/itineraries/user/11111111-2222-4333-8444-555555555555
+# → 200 {"itineraries":[{"id":"<the same UUID>","destination":"Tokyo",...}]}
 ```
 
 A successful save also publishes an `itinerary.created` event to RabbitMQ —
-see the UIs below.
+see the UIs below. (The example start date is already in the past, so the
+24h-before reminder is due immediately: Mailpit (§6) will show both the
+"Trip saved" confirmation *and* the "trip starts soon" reminder within
+seconds — that's the reminder mechanism working, not a bug.)
 
 ### 4.5 The web app
 
@@ -241,6 +253,75 @@ The frontend calls the gateway through a same-origin rewrite (`/api/:path*` →
 `localhost:8080`), so from the browser's point of view it's one origin. Legacy
 pages still talk to the old monolith paths while the migration is in progress
 (strangler pattern — see `docs/TASKS.md` §1.3).
+
+### 4.6 Export a PDF — the S3 path
+
+tools-service fetches the saved aggregate from itinerary-service, renders it
+with pdfkit, uploads to the `si-files` bucket in SeaweedFS, and returns a
+presigned download URL (one hour). This exercises every storage hop the real
+browser flow uses:
+
+```bash
+# save another trip and capture its id ($TOKEN from §4.2)
+IID=$(curl -s -X POST http://localhost:8080/api/itineraries \
+     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+     -d '{"userId":"11111111-2222-4333-8444-555555555555",
+          "itinerary":{"id":null,"sourceCountry":"Singapore","destination":"Tokyo",
+            "startDate":"2026-10-01","endDate":"2026-10-05","estimatedTotalCost":2500,
+            "importantNotes":[],"demographics":{},"accommodation":[],"itineraryDays":[]},
+          "weatherForecast":{}}' \
+     | python3 -c "import sys,json;print(json.load(sys.stdin)['itineraryId'])")
+
+curl -s -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8080/api/tools/export/itinerary/$IID/pdf
+# → 200 {"downloadUrl":"http://localhost:9000/si-files/pdf-exports/…",
+#        "expiresAt":"…","storageKey":"pdf-exports/…"}
+
+# download browser-style (quote the URL — it is full of &) and check the magic bytes
+curl -s "<paste downloadUrl>" -o /tmp/trip.pdf && head -c 8 /tmp/trip.pdf
+# → %PDF-1.…
+```
+
+`downloadUrl` points at `localhost:9000` (SeaweedFS) directly, not the
+gateway — the browser downloads straight from object storage with the
+signature as its credential. You can watch the object land with any S3
+client and the dev credentials:
+
+```bash
+docker run --rm --network host \
+  -e AWS_ACCESS_KEY_ID=smart -e AWS_SECRET_ACCESS_KEY=smart-local-dev \
+  amazon/aws-cli --endpoint-url http://localhost:9000 \
+  s3 ls s3://si-files/pdf-exports/ --recursive
+# → <date> <size> pdf-exports/<itineraryId>/<timestamp>.pdf
+```
+
+### 4.7 Share an itinerary — the event path
+
+`POST /api/tools/shares` mints a read-only share link per recipient and
+publishes `itinerary.shared`, which email-service turns into an email:
+
+```bash
+curl -s -X POST http://localhost:8080/api/tools/shares \
+     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+     -d "{\"itineraryId\":\"$IID\",\"recipientEmails\":[\"peer@test.local\"]}"
+# → 201 {"shareToken":"…","shareUrl":"http://localhost:3000/shared/…"}
+```
+
+Two ways to see it worked:
+
+- **The email** — Mailpit (`http://localhost:8025`) now shows "… shared an
+  itinerary with you" addressed to `peer@test.local`.
+- **The link** — `GET /api/tools/shares/:token` resolves the token to the
+  read-only aggregate. It requires *a* session (the viewer must be signed
+  in; the web app's dev flow does that automatically when you open
+  `shareUrl`), so from curl pass a Bearer:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8080/api/tools/shares/<shareToken>
+# → 200 {"itineraryId":"…","sharedAt":"…","itinerary":{…}}
+```
+
 
 ## 5. How the database seeds itself (and how users are created)
 
@@ -287,7 +368,7 @@ and real Google logins go through the same upsert path.
 
 | URL | What | Why it's useful |
 |---|---|---|
-| `http://localhost:15672` | **RabbitMQ management** (login `guest` / `guest`) | See the `si.events` exchange and message publish rates. Saving an itinerary publishes `itinerary.created` here — the email service (once running) consumes it and sends mail |
+| `http://localhost:15672` | **RabbitMQ management** (login `guest` / `guest`) | See the `si.events` exchange and message publish rates. Saving an itinerary publishes `itinerary.created` here — the email service consumes it and sends mail |
 | `http://localhost:8025` | **Mailpit** — fake inbox | Every email the system "sends" lands here instead of real inboxes. Free, instant, no spam risk |
 | `http://localhost:9000` | **SeaweedFS S3 API** (credentials `smart` / `smart-local-dev`) | S3-compatible file storage; exported itinerary PDFs land in the `si-files` bucket |
 

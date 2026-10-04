@@ -23,14 +23,14 @@ assignment — diagram fidelity is graded), while keeping the app working at eve
 | Route 53 → WAF → ALB | Terraform scaffold (checked in, **not applied**) |
 | API Gateway Instance 1 / Instance 2 | `services/gateway` (Express) — ECS desired count 2 reproduces the two instances |
 | Amazon Cognito (Auth) | Cognito user pool + Google federation, JWT verified at gateway |
-| Tools Service (Export PDF, Sharing) | `services/tools-service` — pdfkit → S3/MinIO, groups & share links |
+| Tools Service (Export PDF, Sharing) | `services/tools-service` — pdfkit → S3 (SeaweedFS locally), groups & share links |
 | Authentication Service (User Profile) | `services/auth-service` — users, users_demographics |
 | Itinerary Service | `services/itinerary-service` — itinerary + days/activities/demographics/accommodation |
 | Gemini Service (Hotel Service) | `services/gemini-service` — AI generation, hotels, flights, plan facade |
 | Message Broker (RabbitMQ) | RabbitMQ topic exchange `si.events` + TTL+DLX reminder queues |
 | Email Service | `services/email-service` — consumes events, SMTP (Mailpit locally / SES later) |
 | RDS ×4 (database-per-service) | Postgres ×4 in docker-compose; `db/init/*.sql` DDL |
-| Amazon S3 (File Storage) | MinIO locally, S3 API-compatible adapter (`packages/shared/src/adapters/storage.ts`) |
+| Amazon S3 (File Storage) | SeaweedFS locally (originally MinIO — swapped in PR #160 after MinIO withdrew its public images), S3 API-compatible adapter (`packages/shared/src/adapters/storage.ts`) |
 | AWS Secrets Manager | Server-side env only now; Secrets Manager wiring in Terraform |
 | CI/CD: CodeCommit → GitHub → Actions → ECR → ECS → CloudWatch | GitHub is the source (CodeCommit closed to new customers); Actions workflows; ECR/ECS/CloudWatch in Terraform |
 
@@ -56,7 +56,7 @@ assignment — diagram fidelity is graded), while keeping the app working at eve
   **Services must not import from each other** — only from `@smart/shared`.
 - Frontend calls stay same-origin via `next.config.ts` rewrite `/api/:path*` → gateway:8080.
 - Ports: web 3000 · gateway 8080 · auth 8081 · itinerary 8082 · gemini 8083 ·
-  tools 8084 · email 8085 · rabbitmq 15672 · mailpit 8025 · minio 9000/9001.
+  tools 8084 · email 8085 · rabbitmq 15672 · mailpit 8025 · s3 (SeaweedFS) 9000.
 
 ### 1.5 Target layout
 ```
@@ -318,10 +318,10 @@ Known cosmetic debt, tracked for T3.4: stale Wikimedia/seed image URLs render as
 Skip T3.2 · shrink T2.5 to export + link-share only · T1.5 reminders → confirmation-only.
 
 ## 4. Final verification (demo path)
-1. `docker compose up -d` → all containers healthy; UIs: RabbitMQ :15672, Mailpit :8025, MinIO :9001
+1. `docker compose up -d` → all containers healthy; UIs: RabbitMQ :15672, Mailpit :8025, SeaweedFS S3 API :9000
 2. `npm run dev:web` → Google login via Cognito (or mock mode offline)
 3. Plan itinerary → generated via gemini-service → save → `itinerary.created` in RabbitMQ → confirmation + scheduled reminder in Mailpit
-4. Export PDF → downloads from MinIO presigned URL
+4. Export PDF → downloads from the SeaweedFS presigned URL
 5. Create group → invite peer → accept → share itinerary → peers get share email → `/shared/<token>` renders read-only
 6. `npm run e2e:headless` + `npm run component:headless` green (from `apps/web`); `cypress/api/*` retargeted at gateway :8080
 7. `docker compose config` + `terraform -chdir=infra/terraform validate` pass
