@@ -319,7 +319,7 @@ Every difference below is an environment variable; no service code changes.
 | Auth | `TOKEN_VERIFY_MODE=dev` + `JWT_DEV_SECRET` | `TOKEN_VERIFY_MODE=cognito` + `COGNITO_ISSUER` + `COGNITO_CLIENT_ID` — every service (gateway + 4) flips together, per `infra/terraform/modules/cognito/RUNBOOK.md` |
 | AI keys | root `.env` (`GEMINI_API_KEY`, `AMADEUS_API_KEY`) — server-side env of gemini-service | Secrets Manager (Terraform scaffold) → same container env vars |
 | Deployment | `docker compose up --build -d` | ECS via the `infra/` Terraform (gateway `desired_count = 2`, one task per service, RDS ×4, S3, ALB) — checked in, **never applied**, $0 |
-| CI | GitHub Actions (`.github/workflows/ci.yml`) — typecheck ×9, contract smokes, web build, full compose smoke, Cypress (mock auth), Aikido SAST | `deploy-uat.yml` completes the pipeline: images → ECR, ECS rollout (dormant until Terraform is applied) |
+| CI | GitHub Actions (`.github/workflows/ci.yml`) — typecheck ×9, contract smokes, web build, full compose smoke, Cypress (mock auth) | `deploy-uat.yml` completes the pipeline: images → ECR, ECS rollout (dormant until Terraform is applied) |
 
 Runbooks that turn this table into clicks:
 

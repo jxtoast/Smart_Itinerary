@@ -21,8 +21,13 @@
 #     The repo's Vercel secrets are left untouched (not ours to manage).
 #     The deploy leg of CI/CD (GitHub → ECR → ECS) lives in deploy-uat.yml —
 #     dormant until the Terraform scaffold is applied (the repo's $0 rule).
-#   * The Aikido SAST job is kept exactly as it was (same action, same
-#     options, same two repo secrets).
+#   * REMOVED 2026-10-05: the Aikido SAST job (carried over from the retired
+#     production.yaml). Rationale: the Aikido cloud account belongs to the
+#     original integrator, so the untriaged queue items could never be
+#     actioned by the current team — the job was a guaranteed red on every
+#     main push, which is noise rather than security. The AIKIDO_SECRET_KEY
+#     repo secret is left in place (admin-managed, harmless unused) and the
+#     Aikido cloud-side integration can be disconnected by its owner.
 #
 # Legacy frontend env: the monolith pages still in apps/web fail `next build`
 # without Supabase env (their cleanup is T3.4). CI passes obvious placeholder
@@ -50,8 +55,7 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# Read-only token for the workflow itself; the Aikido job brings its own PAT
-# (GH_SMART_TOKEN) for anything privileged.
+# Read-only token for the workflow itself; nothing here needs a privileged PAT.
 permissions:
   contents: read
 
@@ -231,28 +235,3 @@ jobs:
         with:
           name: cypress-screenshots
           path: apps/web/cypress/screenshots
-
-  # ---------------------------------------------------------------- job 5
-  # Aikido SAST — carried over unchanged from the retired production.yaml
-  # (same action version, same scan options, same repo secrets).
-  sast:
-    needs: [cypress]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Detect new vulnerabilities
-        uses: AikidoSec/github-actions-workflow@v1.0.13
-        with:
-          secret-key: ${{ secrets.AIKIDO_SECRET_KEY }}
-          fail-on-timeout: true
-          fail-on-dependency-scan: true
-          fail-on-sast-scan: false
-          fail-on-iac-scan: false
-          minimum-severity: "CRITICAL"
-          timeout-seconds: 180
-          post-scan-status-comment: "off"
-          post-sast-review-comments: "off"
-          github-token: ${{ secrets.GH_SMART_TOKEN }}
