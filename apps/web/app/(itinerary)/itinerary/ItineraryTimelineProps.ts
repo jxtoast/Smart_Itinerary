@@ -3,7 +3,9 @@ import { FlightDisplayDetails } from "@/types/FlightDisplayDetails";
 
 export interface ItineraryTimelineProps {
   itinerary: Itinerary;
-  weatherForecast: any;
+  /** Verbatim weather payload — canonical day rows from /gemini/plan, or any
+   *  historical stored shape; normalized for rendering inside the timeline. */
+  weatherForecast: unknown;
   userId: string;
   itineraryId: string;
   flightDisplayDetails: FlightDisplayDetails[];

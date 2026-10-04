@@ -4,8 +4,9 @@ import {
   FlightSearchCriteria,
   Itinerary,
   PlanForm,
-  WeatherForecast,
+  WeatherDay,
   createLogger,
+  normalizeWeatherForecast,
 } from "@smart/shared/src/server";
 import { GeminiService, parseGeminiJson } from "../gemini/GeminiService";
 import { buildItineraryGeneration, buildWeatherGeneration } from "../gemini/prompts";
@@ -30,8 +31,9 @@ const logger = createLogger("gemini-service");
 
 export interface PlanResult {
   itineraryData: Itinerary | null;
-  /** One forecast object, or an array of them — exactly what Gemini returns. */
-  weatherData: WeatherForecast | WeatherForecast[] | null;
+  /** Canonical per-day forecasts: the model's free-form JSON run through
+   *  normalizeWeatherForecast(), or null when nothing renderable survived. */
+  weatherData: WeatherDay[] | null;
   flightDetails: FlightDisplayDetails[] | null;
 }
 
@@ -80,7 +82,10 @@ export class ItineraryPlannerFacade {
     );
 
     const itineraryData = parseGeminiJson<Itinerary>(itineraryResults);
-    const weatherData = parseGeminiJson<WeatherForecast | WeatherForecast[]>(weatherResults);
+    // The weather prompt has no response schema by design, so the model's
+    // JSON shape is whatever it feels like that day — normalize it to the
+    // WeatherDay contract here, at the one place it enters the system.
+    const weatherData = normalizeWeatherForecast(parseGeminiJson<unknown>(weatherResults));
 
     // Flight details come from Amadeus, whose offers are only valid ~30min —
     // any failure here is logged and the plan is returned without flights

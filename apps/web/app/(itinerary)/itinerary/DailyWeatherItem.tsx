@@ -1,5 +1,5 @@
 
-import { WeatherForecast } from "@/types/WeatherForecast";
+import type { WeatherDay } from "@smart/shared/src/dto/gemini";
 
 // Define the type for condition to icon map
 const conditionToIconMap: Record<"clear sky" | "few clouds" | "scattered clouds" | "broken clouds" | "shower rain" | "rain" | "thunderstorm" | "snow" | "mist", string> = {
@@ -15,10 +15,18 @@ const conditionToIconMap: Record<"clear sky" | "few clouds" | "scattered clouds"
 };
 
 
-const DailyWeatherItem = ({ item }: { item: WeatherForecast}) => {
+const DailyWeatherItem = ({ item }: { item: WeatherDay}) => {
 
     // Get the corresponding icon code for the weather condition
     const iconCode = conditionToIconMap[item.condition as keyof typeof conditionToIconMap] || "01d";
+
+    // Range days show "high° / low°C"; single-temperature days just "N°C";
+    // a day with no usable temperature degrades to a dash.
+    const temperature = item.temperatureMinCelsius !== undefined
+      ? `${item.temperatureCelsius}° / ${item.temperatureMinCelsius}°C`
+      : item.temperatureCelsius !== undefined
+        ? `${item.temperatureCelsius}°C`
+        : "—";
 
   return (
     <div
@@ -43,7 +51,7 @@ const DailyWeatherItem = ({ item }: { item: WeatherForecast}) => {
           </h2>
           <p className="mx-auto text-center text-black">{item.condition}</p>
           <p className="font-semibold text-2xl mx-auto text-center text-black">
-            {item.temperature_celsius}°C
+            {temperature}
           </p>
         </div>
       </div>

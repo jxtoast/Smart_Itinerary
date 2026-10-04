@@ -37,9 +37,77 @@ export const PlanRequestSchema = z.object({
 });
 export type PlanRequest = z.infer<typeof PlanRequestSchema>;
 
+// --- Weather ------------------------------------------------------------------
+// The weather generation deliberately leaves the model in free-form JSON (see
+// services/gemini-service/src/gemini/prompts.ts — no response schema), so the
+// emitted shape has drifted: the monolith era produced a flat per-day array
+// ({date, location, temperature_celsius, condition}), while the current model
+// wraps the days in [{forecast: [...], location}] and splits the temperature
+// into {max_celsius, min_celsius}. WeatherDay is the canonical render shape,
+// and normalizeWeatherForecast() tolerates every shape observed so far —
+// including legacy rows already stored verbatim in itinerary-db's JSONB.
+
+export const WeatherDaySchema = z.object({
+  date: z.string(),
+  condition: z.string(),
+  /** Day high when the source gives a range; the single temperature otherwise. */
+  temperatureCelsius: z.number().optional(),
+  temperatureMinCelsius: z.number().optional(),
+});
+export type WeatherDay = z.infer<typeof WeatherDaySchema>;
+
+function isWeatherRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Pull the temperature out of a day in any of the observed encodings. */
+function weatherTemperatures(day: Record<string, unknown>): {
+  temperatureCelsius?: number;
+  temperatureMinCelsius?: number;
+} {
+  const scalar = day.temperature_celsius ?? day.temperatureCelsius;
+  if (typeof scalar === "number") return { temperatureCelsius: scalar };
+  const range = day.temperature;
+  if (!isWeatherRecord(range)) return {};
+  const max = range.max_celsius ?? range.max;
+  const min = range.min_celsius ?? range.min;
+  return {
+    temperatureCelsius: typeof max === "number" ? max : undefined,
+    temperatureMinCelsius: typeof min === "number" ? min : undefined,
+  };
+}
+
+/**
+ * Narrow any weather payload into canonical day rows, or null when nothing
+ * renderable survives. Accepts the three observed container shapes — a bare
+ * day array, the `{forecast: [...]}` wrapper, and an array of such wrappers —
+ * and skips (never rejects on) individual malformed days.
+ */
+export function normalizeWeatherForecast(raw: unknown): WeatherDay[] | null {
+  const days = Array.isArray(raw)
+    ? raw.flatMap((entry) =>
+        isWeatherRecord(entry) && Array.isArray(entry.forecast) ? entry.forecast : [entry],
+      )
+    : isWeatherRecord(raw) && Array.isArray(raw.forecast)
+      ? raw.forecast
+      : null;
+  if (!days) return null;
+
+  const out: WeatherDay[] = [];
+  for (const day of days) {
+    if (!isWeatherRecord(day) || typeof day.date !== "string" || typeof day.condition !== "string") {
+      continue;
+    }
+    out.push(
+      WeatherDaySchema.parse({ date: day.date, condition: day.condition, ...weatherTemperatures(day) }),
+    );
+  }
+  return out.length > 0 ? out : null;
+}
+
 export const PlanResponseSchema = z.object({
   itineraryData: z.unknown().nullable(),
-  weatherData: z.unknown().nullable(),
+  weatherData: z.array(WeatherDaySchema).nullable(),
   flightDetails: z.unknown().nullable(),
 });
 export type PlanResponse = z.infer<typeof PlanResponseSchema>;

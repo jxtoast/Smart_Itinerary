@@ -5,7 +5,7 @@ import ItineraryTimeline from "./ItineraryTimeline";
 import { Itinerary } from '@/types/Itinerary';
 import { ItineraryDemographics } from '@/types/ItineraryDemographics';
 import { FlightDisplayDetails } from '@/types/FlightDisplayDetails'
-import { WeatherForecast } from '@/types/WeatherForecast'
+import type { WeatherDay } from "@smart/shared/src/dto/gemini";
 import { getApiClient } from "@/lib/api";
 import { ApiClientError } from "@smart/api-client";
 import { FlightSearchCriteriaBuilder } from "@/lib/FlightSearchCriteriaBuilder";
@@ -19,7 +19,7 @@ export default function ItineraryPage({
   const [loading, setLoading] = useState<boolean>(false);
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
   const [flightDetails, setFlightDetails] = useState<FlightDisplayDetails[] | []>([]);
-  const [weatherForecast, setWeatherForecast] = useState<WeatherForecast[] | null>(null);
+  const [weatherForecast, setWeatherForecast] = useState<WeatherDay[] | null>(null);
   const [isGeneratedItinerary, setIsGeneratedItinerary] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   /**
@@ -90,9 +90,9 @@ export default function ItineraryPage({
                 "The AI returned no plan. On the free tier this is usually the day's generation quota being used up — try again after the daily reset, or switch to a different API key."
               );
             }
+            // Already normalized to WeatherDay[] by the plan facade.
             if (results.weatherData) {
-              const weather = results.weatherData as WeatherForecast | WeatherForecast[];
-              setWeatherForecast(Array.isArray(weather) ? weather : [weather]);
+              setWeatherForecast(results.weatherData);
             }
 
             if (results.flightDetails) {

@@ -14,42 +14,7 @@
 // see packages/api-client/src/client.ts).
 import { ItineraryPayloadSchema } from "@smart/shared/src/dto/itineraries";
 import type { SharedItineraryResponse } from "@smart/shared/src/dto/tools";
-
-/** One weather day as rendered — every field tolerated (unknown JSONB). */
-interface WeatherDayView {
-  date: string;
-  condition: string;
-  temperatureCelsius: number;
-}
-
-/** Narrow the verbatim weather JSONB into day rows, or null when it is not one. */
-function readWeatherDays(itineraryWeather: unknown): WeatherDayView[] | null {
-  // Accept both a bare day array and the `{ forecast: [...] }` wrapper.
-  const days = Array.isArray(itineraryWeather)
-    ? itineraryWeather
-    : isRecord(itineraryWeather) && Array.isArray(itineraryWeather.forecast)
-      ? itineraryWeather.forecast
-      : null;
-  if (!days) {
-    return null;
-  }
-  const weatherDays: WeatherDayView[] = [];
-  for (const day of days) {
-    if (!isRecord(day) || typeof day.date !== "string" || typeof day.condition !== "string") {
-      continue; // skip malformed entries rather than failing the whole view
-    }
-    weatherDays.push({
-      date: day.date,
-      condition: day.condition,
-      temperatureCelsius: typeof day.temperature_celsius === "number" ? day.temperature_celsius : 0,
-    });
-  }
-  return weatherDays.length > 0 ? weatherDays : null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+import { normalizeWeatherForecast } from "@smart/shared/src/dto/gemini";
 
 export default function SharedItineraryView({ shared }: { shared: SharedItineraryResponse }) {
   const parsed = ItineraryPayloadSchema.safeParse(shared.itinerary);
@@ -69,7 +34,9 @@ export default function SharedItineraryView({ shared }: { shared: SharedItinerar
 
   const itinerary = parsed.data;
   const currency = itinerary.demographics.currency || "";
-  const weatherDays = readWeatherDays(itinerary.weatherForecast);
+  // Weather is verbatim JSONB — the shared normalizer narrows every historical
+  // shape (day array, `{forecast}` wrapper, array of wrappers) into rows.
+  const weatherDays = normalizeWeatherForecast(itinerary.weatherForecast);
 
   return (
     <div className="flex flex-col items-center gap-6 p-6">
@@ -98,7 +65,13 @@ export default function SharedItineraryView({ shared }: { shared: SharedItinerar
                 <div className="card-body p-4 text-center">
                   <h3 className="text-sm font-semibold text-black">{day.date}</h3>
                   <p className="text-colortext-2">{day.condition}</p>
-                  <p className="text-xl font-bold text-black">{day.temperatureCelsius}°C</p>
+                  <p className="text-xl font-bold text-black">
+                    {day.temperatureMinCelsius !== undefined
+                      ? `${day.temperatureCelsius}° / ${day.temperatureMinCelsius}°C`
+                      : day.temperatureCelsius !== undefined
+                        ? `${day.temperatureCelsius}°C`
+                        : "—"}
+                  </p>
                 </div>
               </div>
             ))}
