@@ -162,7 +162,13 @@ services:
       SERVICE_NAME: gateway
       PORT: "8080"
       LOG_LEVEL: info
-      TOKEN_VERIFY_MODE: dev
+      # Auth mode — dev tokens by default. Real Google sign-in (Cognito):
+      # set TOKEN_VERIFY_MODE=cognito + COGNITO_* in the root .env; ALL five
+      # verifying services read the same three vars and must flip together
+      # (infra/terraform/modules/cognito/RUNBOOK.md has the full path).
+      TOKEN_VERIFY_MODE: ${TOKEN_VERIFY_MODE:-dev}
+      COGNITO_ISSUER: ${COGNITO_ISSUER:-}
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID:-}
       JWT_DEV_SECRET: dev-only-secret
       AUTH_SERVICE_URL: http://auth-service:8081
       ITINERARY_SERVICE_URL: http://itinerary-service:8082
@@ -189,6 +195,9 @@ services:
       DATABASE_URL: postgres://smart:smart@auth-db:5432/smart_auth
       AMQP_URL: amqp://guest:guest@rabbitmq:5672
       LOG_LEVEL: info
+      TOKEN_VERIFY_MODE: ${TOKEN_VERIFY_MODE:-dev}
+      COGNITO_ISSUER: ${COGNITO_ISSUER:-}
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID:-}
     ports:
       - "8081:8081"
     depends_on:
@@ -213,6 +222,9 @@ services:
       DATABASE_URL: postgres://smart:smart@itinerary-db:5432/smart_itinerary
       AMQP_URL: amqp://guest:guest@rabbitmq:5672
       LOG_LEVEL: info
+      TOKEN_VERIFY_MODE: ${TOKEN_VERIFY_MODE:-dev}
+      COGNITO_ISSUER: ${COGNITO_ISSUER:-}
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID:-}
     ports:
       - "8082:8082"
     depends_on:
@@ -241,6 +253,9 @@ services:
       DATABASE_URL: postgres://smart:smart@gemini-db:5432/smart_gemini
       AMQP_URL: amqp://guest:guest@rabbitmq:5672
       LOG_LEVEL: info
+      TOKEN_VERIFY_MODE: ${TOKEN_VERIFY_MODE:-dev}
+      COGNITO_ISSUER: ${COGNITO_ISSUER:-}
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       AMADEUS_API_KEY: ${AMADEUS_API_KEY:-}
       AMADEUS_FLIGHTS_API_BASE_URL: ${AMADEUS_FLIGHTS_API_BASE_URL:-https://test.api.amadeus.com/v2}
@@ -308,6 +323,9 @@ services:
       S3_PUBLIC_ENDPOINT: http://localhost:9000
       S3_REGION: ap-southeast-1
       S3_BUCKET: si-files
+      TOKEN_VERIFY_MODE: ${TOKEN_VERIFY_MODE:-dev}
+      COGNITO_ISSUER: ${COGNITO_ISSUER:-}
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID:-}
       S3_ACCESS_KEY_ID: smart
       S3_SECRET_ACCESS_KEY: smart-local-dev
       S3_FORCE_PATH_STYLE: "true"
