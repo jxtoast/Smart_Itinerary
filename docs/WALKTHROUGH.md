@@ -241,7 +241,7 @@ service-linked role.
 
 | File | Runs when | What it does |
 |---|---|---|
-| `ci.yml` | every push to `microservices-develop` / `task/**`, every PR to `main` | 5 jobs: typecheck ×9 workspaces + 2 contract smokes · web production build · **compose smoke** (builds all images, boots the entire platform on the runner, requires the gateway's aggregated health to go green) · Cypress component + e2e in mock mode · Aikido SAST |
+| `ci.yml` | every push to `main` or `task/**`, every PR to `main` | 5 jobs: typecheck ×9 workspaces + 2 contract smokes · web production build · **compose smoke** (builds all images, boots the entire platform on the runner, requires the gateway's aggregated health to go green) · Cypress component + e2e in mock mode · Aikido SAST |
 | `deploy-uat.yml` | manual ("Run workflow") only | the deploy leg: preflight (verifies AWS actually exists, otherwise a *green* no-op naming the gap) → build & push 6 images to ECR → roll ECS services, backends first / gateway last. Dormant by design until Terraform is applied — see §9. |
 
 ---
