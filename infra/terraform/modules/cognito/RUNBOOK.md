@@ -7,9 +7,11 @@ you run it by hand when you want a real pool. Budget ~10 minutes of active
 work plus a couple of minutes of `terraform apply`.
 
 > As of T3.2 this is a **module of the `infra/terraform` root stack**, not a
-> standalone directory — apply/destroy commands run against `infra/terraform`
-> and create the pool together with everything else (apply order in
-> `infra/terraform/README.md`). The resources and steps below are unchanged.
+> standalone directory — apply/destroy commands run against `infra/terraform`.
+> **Apply only the Cognito module** (`-target=module.cognito`, step 2): that
+> creates the pool alone at $0. Applying the *whole* root stack would also
+> build RDS/ALB/ECS (the ~$130–150/mo table in `infra/terraform/README.md`) —
+> not what you want for a sign-in demo.
 
 ---
 
@@ -63,12 +65,17 @@ Every service already knows how to verify the resulting JWTs —
 cd infra/terraform
 cp terraform.tfvars.example terraform.tfvars
 # edit terraform.tfvars: Google client id/secret + a globally unique
-# hosted_ui_domain_prefix (e.g. smart-itinerary-jt) + the AWS inputs the
-# root stack needs (see ../../README.md)
-terraform init      # downloads the AWS provider (~1 min, once)
-terraform plan      # review: the pool arrives with the rest of the stack
-terraform apply     # type yes
+# hosted_ui_domain_prefix (e.g. smart-itinerary-jt). The other root inputs
+# keep their defaults — a pool-only apply needs nothing else.
+terraform init                                  # downloads the AWS provider (~1 min, once)
+terraform plan -target=module.cognito           # review: exactly 4 resources, nothing else
+terraform apply -target=module.cognito          # type yes
 ```
+
+`-target=module.cognito` is what keeps this $0: only the pool, the Google
+IdP, the app client and the hosted-UI domain are created — no RDS, no ALB,
+no ECS (that full deployment is `infra/terraform/README.md`'s apply order,
+for when there is a real budget).
 
 Note the outputs — `terraform output` after apply; you will paste them in
 step 4 (the Cognito ones are surfaced at the root as `cognito_*`):
@@ -93,22 +100,17 @@ Without this, Google shows `redirect_uri_mismatch` at sign-in.
 
 ## Step 4 — flip the env vars (~2 min)
 
-No code changes — only env vars. This task deliberately does **not** edit
-`docker-compose.yml`; add the lines yourself as follows.
+No code changes — only env vars. docker-compose already threads the three
+service-side variables through every verifying service (defaulting to dev
+mode), so the flip is filling two files.
 
-**Every service that verifies JWTs** (gateway, auth-service, itinerary-service,
-gemini-service, tools-service) — in each compose service's `environment:`
-block:
+**Root `.env`** (same file as the Gemini keys — Compose loads it):
 
-```yaml
-      TOKEN_VERIFY_MODE: cognito
-      COGNITO_ISSUER: <issuer output>          # same value everywhere
-      COGNITO_CLIENT_ID: <web_client_id>       # same value everywhere
+```bash
+TOKEN_VERIFY_MODE=cognito
+COGNITO_ISSUER=<issuer output>          # https://cognito-idp.<region>.amazonaws.com/<pool-id>
+COGNITO_CLIENT_ID=<web_client_id>       # same value as the web app's, below
 ```
-
-> All services must flip **together**. Each one re-verifies the JWT with the
-> shared adapter; a gateway in `cognito` mode forwarding to an auth-service
-> still in `dev` mode is a guaranteed 401.
 
 **Web app** — `apps/web/.env` (server-side only, never `NEXT_PUBLIC_`):
 
@@ -117,9 +119,19 @@ COGNITO_HOSTED_UI_DOMAIN=<hosted_ui_base_url output>
 COGNITO_CLIENT_ID=<web_client_id>
 ```
 
-Then restart the stack (`docker compose up -d --force-recreate gateway
-auth-service itinerary-service gemini-service tools-service` and restart
-`npm run dev:web`).
+> All five verifying services (gateway + auth/itinerary/gemini/tools) read the
+> same three root-.env variables and flip **together** by construction. Each
+> one re-verifies the JWT with the shared adapter; a mixed fleet would be a
+> guaranteed 401. If a service crash-loops after the flip, it is missing
+> `COGNITO_ISSUER`/`COGNITO_CLIENT_ID` — `requireEnv` fails fast at boot
+> rather than 401-ing every request.
+
+Then recreate the consumers and restart the dev server:
+
+```bash
+docker compose up -d --force-recreate gateway auth-service itinerary-service gemini-service tools-service
+npm run dev:web    # stop it first — restart picks up apps/web/.env
+```
 
 Side effects to know about:
 
@@ -143,10 +155,11 @@ Tear down (**this is what keeps the bill at $0**):
 
 ```bash
 cd infra/terraform
-terraform destroy    # type yes — tears down the whole stack, pool included
+terraform destroy -target=module.cognito    # type yes — removes the 4 pool resources only
 ```
 
-Then revert the step-4 env lines. Keep `terraform.tfvars` (gitignored) for
+Then delete the step-4 lines from the root `.env` and `apps/web/.env`.
+Keep `terraform.tfvars` (gitignored) for
 the next demo, or delete it and re-do step 1's redirect URI with the new
 domain prefix.
 
@@ -159,6 +172,7 @@ domain prefix.
 | `Requested domain is not available` at apply | `hosted_ui_domain_prefix` is taken globally — pick another, re-apply, and redo step 3. |
 | After sign-in the callback page errors with `state mismatch` | The `si_auth_state` cookie was dropped (different browser profile/incognito, or the callback ran on a different origin than `/auth/start`). Retry on the same origin that is listed in `callback_urls`. |
 | 401 from `/api/*` right after a successful sign-in | One of the services is still on `TOKEN_VERIFY_MODE=dev` (step 4's box) — all services must flip together. |
+| A service crash-loops after the flip (`requireEnv` in the logs) | `TOKEN_VERIFY_MODE=cognito` is set but `COGNITO_ISSUER`/`COGNITO_CLIENT_ID` are missing/empty in the root `.env` — the adapter fails fast at boot instead of 401-ing every request. Fill both, then `docker compose up -d --force-recreate <service>`. |
 | Logout: Cognito page says `logout_uri` not allowed | The origin you sign out from is missing from `callback_urls`/`logout_urls` in `variables.tf` defaults → re-apply. |
 | `npm run dev:web` sign-in 503 page listing missing env | `apps/web/.env` is missing `COGNITO_HOSTED_UI_DOMAIN`/`COGNITO_CLIENT_ID` (step 4). |
 
