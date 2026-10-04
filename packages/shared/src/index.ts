@@ -57,6 +57,7 @@ export * from "./types/UserDemographics";
 
 export * from "./dto/auth";
 export * from "./dto/gemini";
+export * from "./dto/ids";
 export * from "./dto/itineraries";
 export * from "./dto/tools";
 

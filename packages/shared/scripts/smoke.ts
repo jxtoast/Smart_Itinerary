@@ -14,6 +14,7 @@ import {
   ROUTING_KEYS,
   signDevToken,
   createTokenVerifier,
+  UuidLikeSchema,
 } from "../src/server";
 
 async function main(): Promise<void> {
@@ -102,6 +103,21 @@ async function main(): Promise<void> {
     throw new Error("normalizeWeatherForecast should return null on garbage");
   }
   console.log("weather normalization ok: wrapper + scalar + garbage cases");
+
+  // 6. UuidLikeSchema — must accept Cognito subs (UUID-shaped, but the
+  //    variant nibble is often not RFC-compliant) while still rejecting
+  //    non-UUID garbage; Postgres's uuid column accepts the same shapes.
+  const cognitoSub = "594ad51c-d081-709d-56fa-1164e582c8be"; // variant nibble 5 — real observed sub
+  if (!UuidLikeSchema.safeParse(cognitoSub).success) {
+    throw new Error("UuidLikeSchema rejected a real Cognito sub");
+  }
+  if (!UuidLikeSchema.safeParse("1b9472e1-a85e-43bf-9898-6f44e2b20809").success) {
+    throw new Error("UuidLikeSchema rejected a fully RFC-compliant uuid");
+  }
+  if (UuidLikeSchema.safeParse("dev-user").success) {
+    throw new Error("UuidLikeSchema accepted a non-UUID string");
+  }
+  console.log("UuidLikeSchema ok: cognito sub + rfc uuid + garbage");
 
   console.log("\n@smart/shared smoke test: ALL GREEN");
 }
