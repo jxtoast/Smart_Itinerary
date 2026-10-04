@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { UuidLikeSchema } from "./ids";
 
 /**
  * Itinerary Service request/response contracts.
@@ -67,7 +68,9 @@ export const ItineraryPayloadSchema = z
   .passthrough();
 
 export const CreateItineraryRequestSchema = z.object({
-  userId: z.string().uuid(),
+  // Lenient (not z.string().uuid()): the userId is the caller's Cognito sub,
+  // which is UUID-shaped but not always RFC-variant-compliant — see dto/ids.
+  userId: UuidLikeSchema,
   itinerary: ItineraryPayloadSchema,
   /** Weather forecast is stored verbatim as JSONB. */
   weatherForecast: z.unknown(),

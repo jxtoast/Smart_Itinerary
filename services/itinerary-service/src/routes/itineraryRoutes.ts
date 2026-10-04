@@ -10,6 +10,7 @@ import {
   ListItinerariesResponseSchema,
   TokenVerifier,
   UpdateItineraryRequestSchema,
+  UuidLikeSchema,
   parseBody,
   requireClaims,
   withTransaction,
@@ -149,7 +150,9 @@ export function createItineraryRouter(pool: Pool, verifier: TokenVerifier): Rout
     "/user/:userId",
     route(async (req, res) => {
       await requireAuth(req);
-      const userId = parseParam(z.string().uuid(), req.params.userId, "userId");
+      // Lenient, not z.string().uuid(): this is the caller's Cognito sub,
+      // UUID-shaped but not always RFC-variant-compliant (see dto/ids).
+      const userId = parseParam(UuidLikeSchema, req.params.userId, "userId");
       const itineraries = await itineraryRepository.listItinerariesByUser(pool, userId);
       res.json(ListItinerariesResponseSchema.parse({ itineraries }));
     })
