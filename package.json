@@ -17,6 +17,6 @@
     "compose:down": "docker compose down"
   },
   "devDependencies": {
-    "typescript": "^5"
+    "typescript": "^7"
   }
 }
