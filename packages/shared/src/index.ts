@@ -54,7 +54,6 @@ export * from "./types/ItineraryDemographics";
 export * from "./types/TravelType";
 export * from "./types/User";
 export * from "./types/UserDemographics";
-export * from "./types/WeatherForecast";
 
 export * from "./dto/auth";
 export * from "./dto/gemini";

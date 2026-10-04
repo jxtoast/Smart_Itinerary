@@ -7,6 +7,7 @@ import {
   EVENT_EXCHANGE,
   HotelDtoSchema,
   MeResponseSchema,
+  normalizeWeatherForecast,
   parseBody,
   PlanRequestSchema,
   reminderDelayMs,
@@ -78,6 +79,29 @@ async function main(): Promise<void> {
   // 4. Topology constants present
   if (!EVENT_EXCHANGE || !ROUTING_KEYS.itineraryCreated) throw new Error("topology constants missing");
   console.log("topology constants ok:", EVENT_EXCHANGE, Object.values(ROUTING_KEYS).join(", "));
+
+  // 5. Weather normalization — every container shape ever stored must narrow
+  //    to the same canonical WeatherDay rows (see dto/gemini.ts).
+  const currentModelShape = [
+    { forecast: [
+      { date: "2026-10-04", condition: "thunderstorm", temperature: { max_celsius: 32, min_celsius: 24 } },
+    ], location: "Malaysia" },
+  ];
+  const monolithShape = [
+    { date: "2026-10-04", location: "Tokyo", temperature_celsius: 28, condition: "clear sky" },
+  ];
+  const current = normalizeWeatherForecast(currentModelShape);
+  const legacy = normalizeWeatherForecast(monolithShape);
+  if (!current?.[0] || current[0].temperatureCelsius !== 32 || current[0].temperatureMinCelsius !== 24) {
+    throw new Error("normalizeWeatherForecast broke on the current wrapper shape");
+  }
+  if (!legacy?.[0] || legacy[0].temperatureCelsius !== 28 || legacy[0].temperatureMinCelsius !== undefined) {
+    throw new Error("normalizeWeatherForecast broke on the monolith scalar shape");
+  }
+  if (normalizeWeatherForecast({ unparseable: true }) !== null) {
+    throw new Error("normalizeWeatherForecast should return null on garbage");
+  }
+  console.log("weather normalization ok: wrapper + scalar + garbage cases");
 
   console.log("\n@smart/shared smoke test: ALL GREEN");
 }

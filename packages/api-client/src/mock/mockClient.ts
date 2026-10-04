@@ -142,7 +142,10 @@ export function createMockApiClient(): ApiClient {
         // provider is unavailable (gemini-service answers the same way).
         return {
           itineraryData: buildMockItineraryData(parsed.form.destination),
-          weatherData: { forecast: [], destination: parsed.form.destination },
+          // Canonical empty day array (WeatherDay[]) — the timeline renders
+          // "No weather forecast available." in mock mode, same as the real
+          // service does when the weather generation fails.
+          weatherData: [],
           flightDetails: null,
         };
       },

@@ -3,7 +3,7 @@ import { useState, useEffect} from "react";
 import { useParams } from "next/navigation";
 import ItineraryTimeline from "../../ItineraryTimeline";
 import { Itinerary } from '@/types/Itinerary';
-import { WeatherForecast } from '@/types/WeatherForecast';
+import { normalizeWeatherForecast, type WeatherDay } from "@smart/shared/src/dto/gemini";
 import { getApiClient } from "@/lib/api";
 import ExportPdfButton from "@/components/tools/ExportPdfButton";
 import { parse} from 'date-fns';
@@ -12,7 +12,7 @@ export default function ItineraryPage()
 {
     const [loading, setLoading] = useState<boolean>(false);
     const [itinerary, setItinerary] = useState<Itinerary | null>(null);
-    const [weatherForecast, setWeatherForecast] = useState<any | null>(null); // State to store weather forecast
+    const [weatherForecast, setWeatherForecast] = useState<WeatherDay[] | null>(null); // canonical day rows, normalized below
 
     // Use useParams to get dynamic params in Next.js 13+ App Directory
     const { userId, itineraryId } = useParams(); // Get both userId and itineraryId from the URL
@@ -68,14 +68,10 @@ export default function ItineraryPage()
                 // response wraps them as { forecast: [...] } (the mock seed
                 // uses that shape too). The timeline renders an array, so
                 // unwrap here once.
-                const storedWeather = result.weatherForecast as
-                    | WeatherForecast[]
-                    | { forecast?: WeatherForecast[] }
-                    | null
-                    | undefined;
-                setWeatherForecast(
-                    Array.isArray(storedWeather) ? storedWeather : storedWeather?.forecast ?? null
-                );
+                // Stored verbatim JSONB in whatever shape its era's model
+                // produced — normalize to canonical day rows here so the
+                // timeline always receives WeatherDay[].
+                setWeatherForecast(normalizeWeatherForecast(result.weatherForecast));
             } else {
                 setItinerary(null);
             }

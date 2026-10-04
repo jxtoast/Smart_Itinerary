@@ -8,6 +8,7 @@ import FlightLeg from "@/components/flights/FlightDisplayCard";
 import SimpleBar from "simplebar-react";
 import "simplebar-react/dist/simplebar.min.css";
 import DailyWeatherItem from "./DailyWeatherItem";
+import { normalizeWeatherForecast } from "@smart/shared/src/dto/gemini";
 import useHotelStore from "@/store/hotelStore";
 import { ItineraryAccommodation } from "@/types/ItineraryAccommodation";
 import {
@@ -418,28 +419,32 @@ const sortedFlightDetails = useMemo(() => {
           <div className="divider divider-neutral font-bold text-black">
             Weather Forecast
           </div>
-          {/* Display weather forecast if available */}
-          {weatherForecast ? (
-            <div
-              className="weather-forecast mt-4"
-              style={{ maxHeight: "300px" }}
-            >
-              {/* Weather forecast container with SimpleBar */}
-              <SimpleBar
-                style={{ maxHeight: "100%", overflowX: "auto" }}
-                autoHide={true}
+          {/* Display weather forecast if available. The payload may come from
+              /gemini/plan (already normalized) or from stored verbatim JSONB
+              (any historical shape) — normalizeWeatherForecast takes both. */}
+          {(() => {
+            const weatherDays = normalizeWeatherForecast(weatherForecast);
+            return weatherDays ? (
+              <div
+                className="weather-forecast mt-4"
+                style={{ maxHeight: "300px" }}
               >
-                <div className="flex space-x-5" style={{ minWidth: "1000px" }}>
-                  {/* Map through the weather forecast and display each day's weather */}
-                  {weatherForecast.map((day: any, index: number) => (
-                    <DailyWeatherItem key={index} item={day} />
-                  ))}
-                </div>
-              </SimpleBar>
-            </div>
-          ) : (
-            <div className="text-black">No weather forecast available.</div>
-          )}
+                {/* Weather forecast container with SimpleBar */}
+                <SimpleBar
+                  style={{ maxHeight: "100%", overflowX: "auto" }}
+                  autoHide={true}
+                >
+                  <div className="flex space-x-5" style={{ minWidth: "1000px" }}>
+                    {weatherDays.map((day) => (
+                      <DailyWeatherItem key={`${day.date}-${day.condition}`} item={day} />
+                    ))}
+                  </div>
+                </SimpleBar>
+              </div>
+            ) : (
+              <div className="text-black">No weather forecast available.</div>
+            );
+          })()}
 
           <div className="divider divider-neutral font-bold text-black">Accommodation</div>
           <div id="accommodation" className={`grid ${colClass} items-center gap-8`}>
