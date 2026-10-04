@@ -241,7 +241,7 @@ service-linked role.
 
 | File | Runs when | What it does |
 |---|---|---|
-| `ci.yml` | every push to `main` or `task/**`, every PR to `main` | 5 jobs: typecheck ×9 workspaces + 2 contract smokes · web production build · **compose smoke** (builds all images, boots the entire platform on the runner, requires the gateway's aggregated health to go green) · Cypress component + e2e in mock mode · Aikido SAST |
+| `ci.yml` | every push to `main` or `task/**`, every PR to `main` | 4 jobs: typecheck ×9 workspaces + 2 contract smokes · web production build · **compose smoke** (builds all images, boots the entire platform on the runner, requires the gateway's aggregated health to go green) · Cypress component + e2e in mock mode |
 | `deploy-uat.yml` | manual ("Run workflow") only | the deploy leg: preflight (verifies AWS actually exists, otherwise a *green* no-op naming the gap) → build & push 6 images to ECR → roll ECS services, backends first / gateway last. Dormant by design until Terraform is applied — see §9. |
 
 ---
@@ -745,7 +745,7 @@ browser code.
 
 ## 9. CI/CD — what runs when
 
-**`ci.yml` — the CI leg (every push, every PR).** Five jobs:
+**`ci.yml` — the CI leg (every push, every PR).** Four jobs:
 
 1. **checks** — `tsc --noEmit` across all 9 workspaces + both contract
    smokes (shared DTO/events/adapters, api-client wire behaviour).
@@ -758,7 +758,9 @@ browser code.
    an environment that lives for two minutes.
 4. **cypress** — component suites + all 17 e2e specs in mock mode against a
    production server build.
-5. **sast** — Aikido static/dependency security scanning.
+
+(The Aikido SAST job that used to run here was removed on 2026-10-05 — see
+the rationale in the `ci.yml` header.)
 
 **`deploy-uat.yml` — the CD leg (manual, dormant by design).** Three jobs:
 `preflight` (verifies AWS credentials are set *and* the Terraform-managed
