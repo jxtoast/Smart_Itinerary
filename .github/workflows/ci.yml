@@ -93,6 +93,9 @@ jobs:
       - name: api-client contract smoke
         run: npm run smoke -w @smart/api-client
 
+      - name: Gateway proxy smoke (rate-limit keying behind ALB-style x-forwarded-for)
+        run: npm run smoke -w @smart/gateway
+
   # ---------------------------------------------------------------- job 2
   # Production build of the web app — the same build the compose `web` image
   # and a future ECS image would run.
