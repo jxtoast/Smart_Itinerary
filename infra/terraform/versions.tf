@@ -1,30 +1,10 @@
-# Terraform for the Smart Itinerary AWS stack (the diagram's right half).
-# The lead runs it by hand — CI's gate stays `terraform validate` (via
-# `init -backend=false`, which skips the remote state bucket). README.md has
-# the apply order, the demo-rhythm cost table and the teardown runbook.
+# Terraform for the Smart Itinerary AWS scaffold (the diagram's right half).
+# Checked in for review and NEVER applied by CI or the compose stack — the lead
+# runs it by hand when a real deployment is wanted. README.md has the apply
+# order and the cost estimate; `terraform validate` is the repo's CI-level gate.
 
 terraform {
-  # >= 1.10 for the S3 backend's native lockfile (use_lockfile) — no DynamoDB
-  # table needed for state locking.
-  required_version = ">= 1.10"
-
-  # Remote state in S3: the demo rhythm (apply → demo → destroy) makes state
-  # loss the top billed-resource hazard — a lost local statefile with live
-  # resources means orphans nothing can destroy. The bucket is created
-  # OUT OF BAND before the first `terraform init` (a backend cannot create
-  # its own bucket):
-  #   aws s3api create-bucket --bucket smart-itinerary-tfstate-<suffix> \
-  #     --region ap-southeast-1 --create-bucket-configuration LocationConstraint=ap-southeast-1
-  #   aws s3api put-bucket-versioning --bucket <bucket> \
-  #     --versioning-configuration Status=Enabled
-  # Versioning doubles as state history; default SSE protects the secrets
-  # state inevitably contains. Adjust bucket + region here to match.
-  backend "s3" {
-    bucket       = "smart-itinerary-tfstate-CHANGE-ME"
-    key          = "prod/terraform.tfstate"
-    region       = "ap-southeast-1"
-    use_lockfile = true
-  }
+  required_version = ">= 1.5"
 
   required_providers {
     aws = {

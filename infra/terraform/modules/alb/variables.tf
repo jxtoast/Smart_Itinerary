@@ -22,15 +22,9 @@ variable "alb_security_group_id" {
 }
 
 variable "gateway_container_port" {
-  description = "The gateway's container port — the API target group's backend."
+  description = "The gateway's container port — the target group's only backend."
   type        = number
   default     = 8080
-}
-
-variable "web_container_port" {
-  description = "The web app's container port — the default (non-API) target group's backend."
-  type        = number
-  default     = 3000
 }
 
 # ── Optional edge pieces (all default OFF — see README cost table) ───────────

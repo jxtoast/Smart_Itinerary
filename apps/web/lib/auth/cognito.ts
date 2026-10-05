@@ -93,22 +93,9 @@ export function sanitizeNextPath(raw: string | null | undefined): string {
   }
 }
 
-/**
- * The public origin browsers use to reach the web app. WEB_PUBLIC_URL wins
- * when set (the ECS web task sets it to the CloudFront URL): behind
- * CloudFront + ALB the request reaches Next.js with an internal Host (the
- * ALB's DNS name) and `x-forwarded-proto: http`, so a request-derived origin
- * would be `http://<alb-dns>` — an origin Cognito's callback/logout
- * allowlists reject with redirect_mismatch. Unset (localhost dev), the
- * request origin IS the public origin and nothing changes.
- */
-export function publicOrigin(requestOrigin: string): string {
-  return process.env.WEB_PUBLIC_URL?.replace(/\/+$/, "") || requestOrigin;
-}
-
 /** The OAuth client that Cognito federation calls back to: /auth/callback. */
 export function callbackUrl(requestOrigin: string): string {
-  return `${publicOrigin(requestOrigin)}/auth/callback`;
+  return `${requestOrigin}/auth/callback`;
 }
 
 /** Cognito hosted-UI URL that starts the authorization-code + PKCE flow. */

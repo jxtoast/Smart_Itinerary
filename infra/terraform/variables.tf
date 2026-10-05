@@ -96,9 +96,9 @@ variable "token_verify_mode" {
 }
 
 variable "web_public_url" {
-  description = "Browser origin of the web app — share links (WEB_PUBLIC_URL), email links (WEB_APP_URL) and the Cognito callback host must resolve in a BROWSER. Empty (default) = the CloudFront distribution's https domain, this scaffold's front door."
+  description = "Browser origin of the web app — share links (WEB_PUBLIC_URL) and email links (WEB_APP_URL) must resolve in a BROWSER, so this is your public origin, not an internal hostname."
   type        = string
-  default     = ""
+  default     = "http://localhost:3000"
 }
 
 # ── Third-party keys (modules/secrets → container secrets) ────────────────────
@@ -125,27 +125,8 @@ variable "amadeus_flights_api_base_url" {
 
 # ── Message broker swap (see the table above) ─────────────────────────────────
 
-variable "enable_mq" {
-  description = "Create the Amazon MQ RabbitMQ broker (modules/mq, ≈$56/mo while up)? true = the scaffold provisions the diagram's broker box; false = point amqp_url at a manually created broker instead."
-  type        = bool
-  default     = true
-}
-
-variable "mq_broker_username" {
-  description = "App-level user for the managed broker (composed into the amqps:// URL). Alphanumeric — URL-composed."
-  type        = string
-  default     = "smart"
-}
-
-variable "mq_broker_password" {
-  description = "Password for the managed broker (12–128 chars, ≥4 unique — Amazon MQ's rule; alphanumeric so it URL-composes cleanly). Set in terraform.tfvars, never committed."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
 variable "amqp_url" {
-  description = "Manually created broker endpoint (amqps://…:5671 with credentials) — ONLY used when enable_mq = false. Empty = the email workers idle (compose-parity no-broker behaviour)."
+  description = "Amazon MQ for RabbitMQ endpoint (amqps://…:5671) with its credentials. The broker itself is NOT created by this scaffold (README 'What is deliberately not here') — create it by hand, or leave empty and accept the email workers idling."
   type        = string
   default     = ""
   sensitive   = true
@@ -165,18 +146,6 @@ variable "ses_smtp_password" {
   type        = string
   default     = ""
   sensitive   = true
-}
-
-variable "mail_from" {
-  description = "SES-VERIFIED sender address for the From header (email-service MAIL_FROM) — e.g. your Gmail while in the sandbox. SES rejects sends from unverified addresses, so set this in terraform.tfvars after verifying the identity in the SES console."
-  type        = string
-  default     = ""
-}
-
-variable "owner_email_fallback" {
-  description = "Recipient used when an event carries no owner email (email-service OWNER_EMAIL_FALLBACK) — in the SES sandbox this must also be a verified identity. Empty = the mailer's local default applies (mail will not deliver)."
-  type        = string
-  default     = ""
 }
 
 # ── Databases (modules/rds) ───────────────────────────────────────────────────
