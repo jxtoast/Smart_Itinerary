@@ -45,6 +45,16 @@ const PUBLIC_API_PATHS = new Set(["/api/auth/dev-token"]);
 
 const app: Express = express();
 
+// Two proxies sit in front of the gateway on AWS (CloudFront → ALB), so the
+// client IP is the second entry of x-forwarded-for, not the socket address
+// (the ALB's). Declaring the trust depth does two jobs: the rate limiter keys
+// per real client instead of one shared ALB bucket, and express-rate-limit v8
+// REFUSES to serve requests that carry an x-forwarded-for header while trust
+// proxy is unset (validation error → 500 on every call behind the ALB).
+// Depth 2 also stays correct when a client reaches the ALB directly (one XFF
+// hop) — Express stops walking at the leftmost trusted address.
+app.set("trust proxy", 2);
+
 // --- global middleware -------------------------------------------------------
 app.use(helmet()); // sane security headers; API-only service so CSP is inert
 app.use(cookieParser()); // populates req.cookies so the shared adapter can read si_session

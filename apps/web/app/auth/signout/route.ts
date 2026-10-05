@@ -14,6 +14,7 @@ import {
   PKCE_VERIFIER_COOKIE,
   SI_SESSION_COOKIE,
   clearCookie,
+  publicOrigin,
   readCognitoConfig,
 } from "@/lib/auth/cognito";
 
@@ -31,7 +32,9 @@ export async function GET(request: NextRequest) {
     // logout_uri must EXACTLY match a URL whitelisted in the pool's
     // logout_urls (Terraform default: the bare origin, no trailing slash).
     // `origin + "/"` fails that match and Cognito bounces to an error page.
-    logoutUrl.searchParams.set("logout_uri", request.nextUrl.origin);
+    // publicOrigin (not the request origin): behind CloudFront+ALB the
+    // request Host is the ALB's internal DNS name, which is not whitelisted.
+    logoutUrl.searchParams.set("logout_uri", publicOrigin(request.nextUrl.origin));
     destination.href = logoutUrl.toString();
   }
 

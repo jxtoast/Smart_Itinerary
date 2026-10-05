@@ -11,7 +11,11 @@ output "database_urls" {
   value = {
     for key, db in local.databases :
     key => format(
-      "postgres://%s:%s@%s:5432/%s",
+      # sslmode=require: RDS Postgres 15+ defaults rds.force_ssl=1, and the
+      # pg driver (node-postgres ≥8.11) honours the parameter in the URL —
+      # so the ECS tasks AND the one-off DDL-loading psql tasks both connect
+      # over TLS with zero adapter code.
+      "postgres://%s:%s@%s:5432/%s?sslmode=require",
       var.master_username,
       random_password.master[key].result,
       aws_db_instance.this[key].address,

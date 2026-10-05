@@ -37,6 +37,16 @@ output "s3_bucket_name" {
   value       = module.s3.bucket_name
 }
 
+output "web_public_url" {
+  description = "The web app's public origin (the CloudFront https domain unless var.web_public_url overrides it) — what you open in a browser."
+  value       = local.web_public_url
+}
+
+output "mq_endpoint" {
+  description = "The Amazon MQ broker's amqps endpoint (no credentials) — empty when enable_mq = false."
+  value       = one(module.mq[*].endpoint)
+}
+
 # ── Cognito (empty strings when enable_cognito = false) ───────────────────────
 
 output "cognito_issuer" {

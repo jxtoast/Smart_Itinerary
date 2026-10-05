@@ -14,23 +14,30 @@ cognito_hosted_ui_domain_prefix = "smart-itinerary-CHANGE-ME"
 google_client_id     = "PASTE_GOOGLE_OAUTH_CLIENT_ID"
 google_client_secret = "PASTE_GOOGLE_OAUTH_CLIENT_SECRET"
 
+# Amazon MQ broker password (12–128 chars, ≥4 unique, alphanumeric — Amazon
+# MQ's rule + URL-composition). The broker itself is created by this scaffold
+# (modules/mq) when enable_mq = true (default).
+mq_broker_password = "PASTE_MQ_BROKER_PASSWORD"
+
 # Third-party keys (empty = the affected endpoints answer 503, like compose).
 gemini_api_key  = ""
 amadeus_api_key = ""
 
-# ── Swap targets (fill in when the AWS-side component exists) ────────────────
+# ── Email (fill in when the SES side exists — README "SES by hand") ──────────
 
-# Amazon MQ for RabbitMQ (amqps://…:5671) — the broker is created by hand
-# (README "What is deliberately not here").
-amqp_url = ""
-
-# SES SMTP credentials from the SES console; MAIL_FROM must also be a
-# SES-verified identity before mail actually sends.
+# SES SMTP credentials from the SES console.
 ses_smtp_username = ""
 ses_smtp_password = ""
 
-# Public browser origin of the web app (share links / email links resolve in
-# a BROWSER — not a compose hostname).
+# A SES-VERIFIED sender address (the From header) — SES rejects sends from
+# unverified identities. In the sandbox, recipients must be verified too.
+mail_from          = "you@example.com"
+owner_email_fallback = "you@example.com"
+
+# ── Derived automatically (set only to override) ─────────────────────────────
+
+# Public browser origin of the web app. Empty = the CloudFront distribution's
+# https domain (this scaffold's front door).
 # web_public_url = "https://my-demo.example.com"
 
 # ── Optional edge pieces (default OFF — see README cost table) ───────────────
@@ -45,5 +52,8 @@ ses_smtp_password = ""
 # ── Auth mode (after the pool exists — see modules/cognito/RUNBOOK.md) ───────
 
 # token_verify_mode = "cognito"   # all five token-verifying services flip together
+#
+# The CloudFront callback/logout URLs are appended automatically (root
+# main.tf) — add entries here only for extra origins (localhost is default):
 # cognito_callback_urls = ["https://my-demo.example.com/auth/callback"]
 # cognito_logout_urls   = ["https://my-demo.example.com"]
