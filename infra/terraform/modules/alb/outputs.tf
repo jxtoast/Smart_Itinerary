@@ -10,6 +10,11 @@ output "gateway_target_group_arn" {
   value       = aws_lb_target_group.gateway.arn
 }
 
+output "web_target_group_arn" {
+  description = "Target group the web app registers into — the listener rules' default destination (modules/ecs)."
+  value       = aws_lb_target_group.web.arn
+}
+
 output "alb_arn_suffix" {
   description = "ALB arn suffix — the LoadBalancer dimension for CloudWatch alarms."
   value       = aws_lb.main.arn_suffix

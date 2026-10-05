@@ -4,11 +4,16 @@
 # documented swaps (RDS / S3 / SES / Cognito / Amazon MQ).
 #
 # Entry conventions:
-#   env         — plain environment variables; value null means "compose had
-#                 this var, AWS does not need it" and the entry is dropped
-#                 (kept visible so the diff to compose is explicit).
-#   secret_refs — env vars whose values ECS injects from Secrets Manager at
-#                 container start (name → key in modules/secrets).
+#   env                — plain environment variables; value null means "compose
+#                        had this var, AWS does not need it" and the entry is
+#                        dropped (kept visible so the diff to compose is explicit).
+#   secret_refs        — env vars whose values ECS injects from Secrets Manager
+#                        at container start (name → key in modules/secrets).
+#   alb_target_group   — "" = not publicly reachable (backends); "gateway" or
+#                        "web" = registers into that ALB target group.
+#   register_cloud_map — false for the web app: nothing resolves it by DNS
+#                        (browsers reach it via CloudFront → ALB), so a
+#                        discovery record would be a dangling name.
 
 locals {
   # The private DNS namespace (compose's flat service network). Services
@@ -36,8 +41,9 @@ locals {
     # ── gateway — diagram: "API Gateway Instance 1/2" ────────────────────────
     # Compose block: services.gateway (no DB/AMQP — it holds no state).
     gateway = {
-      port       = 8080
-      attach_alb = true
+      port               = 8080
+      alb_target_group   = "gateway"
+      register_cloud_map = true
 
       env = concat(
         [
@@ -64,8 +70,9 @@ locals {
 
     # ── auth-service — diagram: "Authentication Service (User Profile)" ─────
     auth-service = {
-      port       = 8081
-      attach_alb = false
+      port               = 8081
+      alb_target_group   = ""
+      register_cloud_map = true
 
       env = concat(
         [
@@ -79,7 +86,7 @@ locals {
       secret_refs = {
         # postgres:smart:smart@auth-db:5432/smart_auth → RDS smart_auth
         DATABASE_URL = "auth-service/DATABASE_URL"
-        # amqp://guest:guest@rabbitmq:5672 → Amazon MQ (broker made by hand)
+        # amqp://guest:guest@rabbitmq:5672 → Amazon MQ (modules/mq)
         AMQP_URL       = "broker/AMQP_URL"
         JWT_DEV_SECRET = "jwt/JWT_DEV_SECRET"
       }
@@ -87,8 +94,9 @@ locals {
 
     # ── itinerary-service — diagram: "Itinerary Service" ────────────────────
     itinerary-service = {
-      port       = 8082
-      attach_alb = false
+      port               = 8082
+      alb_target_group   = ""
+      register_cloud_map = true
 
       env = concat(
         [
@@ -108,8 +116,9 @@ locals {
 
     # ── gemini-service — diagram: "Gemini Service (Hotel Service)" ──────────
     gemini-service = {
-      port       = 8083
-      attach_alb = false
+      port               = 8083
+      alb_target_group   = ""
+      register_cloud_map = true
 
       env = concat(
         [
@@ -135,8 +144,9 @@ locals {
     # ── email-service — diagram: "Email Service" ────────────────────────────
     # Broker-only (no DB): consumes RabbitMQ events, sends over SMTP.
     email-service = {
-      port       = 8085
-      attach_alb = false
+      port               = 8085
+      alb_target_group   = ""
+      register_cloud_map = true
 
       env = [
         { name = "SERVICE_NAME", value = "email-service" },
@@ -145,9 +155,11 @@ locals {
         # ── Mailpit → SES swap (same vars, SES's SMTP interface) ────────────
         { name = "SMTP_HOST", value = "email-smtp.${var.aws_region}.amazonaws.com" },
         { name = "SMTP_PORT", value = "587" },
-        # MAIL_FROM must be a SES-verified identity before any mail sends.
-        { name = "MAIL_FROM", value = "Smart Itinerary <no-reply@smart-itinerary.local>" },
-        { name = "OWNER_EMAIL_FALLBACK", value = "owner@smart-itinerary.local" },
+        # MAIL_FROM must be a SES-verified identity before any mail sends —
+        # SES rejects senders on unverified domains, so this comes from
+        # tfvars (empty → entry dropped, compose's dead default applies).
+        { name = "MAIL_FROM", value = var.mail_from == "" ? null : "Smart Itinerary <${var.mail_from}>" },
+        { name = "OWNER_EMAIL_FALLBACK", value = var.owner_email_fallback == "" ? null : var.owner_email_fallback },
         { name = "WEB_APP_URL", value = var.web_public_url },
       ]
 
@@ -163,8 +175,9 @@ locals {
 
     # ── tools-service — diagram: "Tools Service (Export PDF, Sharing)" ──────
     tools-service = {
-      port       = 8084
-      attach_alb = false
+      port               = 8084
+      alb_target_group   = ""
+      register_cloud_map = true
 
       env = concat(
         [
@@ -193,6 +206,36 @@ locals {
         AMQP_URL       = "broker/AMQP_URL"
         JWT_DEV_SECRET = "jwt/JWT_DEV_SECRET"
       }
+    }
+
+    # ── web — the diagram's "Clients" box, hosted (no compose block) ────────
+    # The Next.js app as the 7th ECS service: runs the standalone production
+    # build (apps/web/Dockerfile) instead of compose's `next dev`. No DB, no
+    # broker, no secrets — it only renders pages, verifies nothing and talks
+    # to the gateway either via the ALB's /api/* rule (browser requests) or
+    # directly via Cloud Map (its own rewrite fallback).
+    web = {
+      port               = 3000
+      alb_target_group   = "web"
+      register_cloud_map = false
+
+      env = [
+        { name = "NODE_ENV", value = "production" },
+        { name = "PORT", value = "3000" },
+        # Compose parity: the rewrite target, resolvable via Cloud Map even
+        # though ALB path routing handles public /api/* traffic first.
+        { name = "API_GATEWAY_URL", value = "http://gateway.${local.namespace_name}:8080" },
+        # Server-side sign-in config — the same public-by-design values the
+        # five verifying services carry (never NEXT_PUBLIC_).
+        { name = "COGNITO_HOSTED_UI_DOMAIN", value = var.cognito_hosted_ui_domain == "" ? null : var.cognito_hosted_ui_domain },
+        { name = "COGNITO_CLIENT_ID", value = var.cognito_client_id == "" ? null : var.cognito_client_id },
+        # The Cognito redirect/logout URLs and share/email links are built
+        # from this origin — behind CloudFront the request Host is an
+        # internal ALB DNS name, so the public origin must come from env.
+        { name = "WEB_PUBLIC_URL", value = var.web_public_url == "" ? null : var.web_public_url },
+      ]
+
+      secret_refs = {}
     }
   }
 }

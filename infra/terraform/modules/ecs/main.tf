@@ -1,5 +1,6 @@
 # ECS Fargate — the diagram's service boxes, containerized exactly as they
-# run under docker-compose.yml.
+# run under docker-compose.yml, plus the web app (the diagram's "Clients"
+# box, hosted as the 7th service).
 #
 #   ECS cluster      = the compose project
 #   task definition  = one compose service block (env mirrors it 1:1; see the
@@ -12,11 +13,11 @@
 #                      count moves within [min, max] on CPU (autoscaling.tf)
 #   Cloud Map (DNS)  = compose's service hostnames: the gateway's upstream
 #                      URL `http://auth-service:8081` becomes
-#                      `http://auth-service.<namespace>:8081`
+#                      `http://auth-service.<namespace>:8081` (backends only)
 #
 # Everything the services read from the environment keeps its name — the only
 # differences from compose are the swap targets (RDS URLs from Secrets
-# Manager, real S3, SES SMTP, optional Cognito), which is the point: same
+# Manager, real S3, SES SMTP, Cognito), which is the point: same
 # images, env-var-only changes.
 
 # ── Roles ─────────────────────────────────────────────────────────────────────
@@ -184,7 +185,9 @@ resource "aws_ecs_task_definition" "services" {
 # ── Services: keep `desired_count` tasks running ─────────────────────────────
 
 resource "aws_service_discovery_service" "services" {
-  for_each = local.services
+  # Only the backends get DNS names — the web app is reached through the ALB
+  # (see the register_cloud_map convention in locals.tf).
+  for_each = { for name, svc in local.services : name => svc if svc.register_cloud_map }
 
   name = each.key # the DNS label — compose's hostname
 
@@ -228,20 +231,27 @@ resource "aws_ecs_service" "services" {
     assign_public_ip = true
   }
 
-  # The gateway joins the ALB's target group; no other service is public.
+  # The gateway joins the gateway target group (API path), the web app the
+  # web target group (default path); the backends are internal-only.
   dynamic "load_balancer" {
-    for_each = each.value.attach_alb ? [1] : []
+    for_each = each.value.alb_target_group != "" ? [1] : []
 
     content {
-      target_group_arn = var.gateway_target_group_arn
+      target_group_arn = var.alb_target_group_arns[each.value.alb_target_group]
       container_name   = each.key
       container_port   = each.value.port
     }
   }
 
   # Register in Cloud Map so sibling services resolve the compose-style name.
-  service_registries {
-    registry_arn = aws_service_discovery_service.services[each.key].arn
+  # The web app is excluded (register_cloud_map = false): nothing resolves it
+  # by DNS — browsers arrive via CloudFront → ALB.
+  dynamic "service_registries" {
+    for_each = each.value.register_cloud_map ? [1] : []
+
+    content {
+      registry_arn = aws_service_discovery_service.services[each.key].arn
+    }
   }
 
   # Give the container's own health check time to settle before the ALB

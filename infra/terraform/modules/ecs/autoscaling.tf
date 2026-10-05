@@ -27,6 +27,7 @@ locals {
     gemini-service    = { min = 1, max = 3, cpu_target = 60 }
     email-service     = { min = 1, max = 3, cpu_target = 60 }
     tools-service     = { min = 1, max = 3, cpu_target = 60 }
+    web               = { min = 1, max = 3, cpu_target = 60 }
   }
 }
 

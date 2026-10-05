@@ -5,14 +5,18 @@
 # layers are worth knowing when reading the wiring (and when applying
 # incrementally with -target):
 #   1. network / ecr / s3 / cognito — nothing depends on them
-#   2. rds                          — needs network's subnets + security groups
-#   3. secrets                      — wraps the RDS URLs composed below
-#   4. alb / ecs / cloudwatch       — the runtime that consumes everything above
+#   2. mq                           — needs network's subnets + security groups
+#   3. rds                          — needs network's subnets + security groups
+#   4. secrets                      — wraps the RDS URLs + the MQ URL composed below
+#   5. alb / ecs / cloudwatch       — the runtime that consumes everything above
+#   6. cloudfront                   — needs the ALB; the Cognito client update
+#                                     (callback URLs) orders after it automatically,
+#                                     so ONE apply ends with login working
 
 locals {
-  # The six containerized backends from docker-compose.yml. The same names are
-  # reused for ECR repos, ECS services, Cloud Map records and log groups, so a
-  # compose service name always names its AWS counterpart too.
+  # The six containerized backends from docker-compose.yml plus the web app —
+  # the same names are reused for ECR repos, ECS services and log groups, so
+  # a compose service name always names its AWS counterpart too.
   service_names = [
     "gateway",
     "auth-service",
@@ -20,6 +24,7 @@ locals {
     "gemini-service",
     "tools-service",
     "email-service",
+    "web",
   ]
 
   # The Cognito values the ECS task envs need. `one()` over the splat returns
@@ -29,6 +34,25 @@ locals {
   cognito_issuer         = coalesce(one(module.cognito[*].issuer), "")
   cognito_web_client_id  = coalesce(one(module.cognito[*].web_client_id), "")
   cognito_hosted_ui_base = coalesce(one(module.cognito[*].hosted_ui_base_url), "")
+
+  # The message broker: the managed Amazon MQ broker this scaffold creates
+  # (modules/mq) when enable_mq is on, otherwise a manually created broker's
+  # amqps:// URL via var. Either way it lands in the same
+  # broker/AMQP_URL secret the services already read.
+  amqp_url = var.enable_mq ? one(module.mq[*].amqp_url) : var.amqp_url
+
+  # The web app's public browser origin. Empty override var = the CloudFront
+  # domain (this scaffold's front door — HTTPS, which Cognito's callback
+  # rules require). Set var.web_public_url only when serving the web app
+  # from somewhere else (e.g. an Amplify/Vercel URL).
+  web_public_url = var.web_public_url != "" ? var.web_public_url : "https://${module.cloudfront.domain_name}"
+
+  # Cognito's redirect allowlists: the localhost entries stay (local dev
+  # signs in against the same pool) and the CloudFront origin is appended —
+  # interpolating the domain here is what makes ONE apply end with login
+  # working: Terraform orders the client update after the distribution.
+  cognito_callback_urls = concat(var.cognito_callback_urls, ["${local.web_public_url}/auth/callback"])
+  cognito_logout_urls   = concat(var.cognito_logout_urls, [local.web_public_url])
 }
 
 # ── Layer 1: standalone pieces ────────────────────────────────────────────────
@@ -40,7 +64,7 @@ module "network" {
   project                = var.project
   vpc_cidr               = var.vpc_cidr
   az_count               = var.az_count
-  gateway_container_port = 8080 # the ALB's only target (see modules/alb)
+  gateway_container_port = 8080 # the ALB's API target (see modules/alb)
 }
 
 # Diagram: "ECR" (the CI/CD pipeline's image registry).
@@ -67,12 +91,27 @@ module "cognito" {
   hosted_ui_domain_prefix = var.cognito_hosted_ui_domain_prefix
   google_client_id        = var.google_client_id
   google_client_secret    = var.google_client_secret
-  callback_urls           = var.cognito_callback_urls
-  logout_urls             = var.cognito_logout_urls
+  callback_urls           = local.cognito_callback_urls
+  logout_urls             = local.cognito_logout_urls
 }
 
-# ── Layer 2: the four databases (diagram: "RDS ×4") ──────────────────────────
+# ── Layer 2: the broker + the four databases ─────────────────────────────────
 
+# Diagram: "Message Broker (RabbitMQ)" — Amazon MQ for RabbitMQ (modules/mq
+# closes the scaffold's former "created by hand" gap).
+module "mq" {
+  source = "./modules/mq"
+  count  = var.enable_mq ? 1 : 0
+
+  project                    = var.project
+  vpc_id                     = module.network.vpc_id
+  subnet_id                  = module.network.public_subnet_ids[0]
+  services_security_group_id = module.network.services_security_group_id
+  broker_username            = var.mq_broker_username
+  broker_password            = var.mq_broker_password
+}
+
+# Diagram: "RDS ×4" (database-per-service).
 module "rds" {
   source = "./modules/rds"
 
@@ -97,7 +136,7 @@ module "secrets" {
   environment       = "prod"
   gemini_api_key    = var.gemini_api_key
   amadeus_api_key   = var.amadeus_api_key
-  amqp_url          = var.amqp_url
+  amqp_url          = local.amqp_url
   ses_smtp_username = var.ses_smtp_username
   ses_smtp_password = var.ses_smtp_password
 
@@ -115,7 +154,8 @@ module "secrets" {
 # ── Layer 4: the runtime ──────────────────────────────────────────────────────
 
 # Diagram: "Route 53 → WAF → ALB". Route53 and WAF are count-gated OFF by
-# default; the ALB itself always exists and fronts the gateway.
+# default; the ALB itself always exists and routes /api/* → gateway,
+# everything else → web.
 module "alb" {
   source = "./modules/alb"
 
@@ -124,6 +164,7 @@ module "alb" {
   subnet_ids             = module.network.public_subnet_ids
   alb_security_group_id  = module.network.alb_security_group_id
   gateway_container_port = 8080
+  web_container_port     = 3000
 
   enable_waf          = var.enable_waf
   route53_zone_id     = var.route53_zone_id
@@ -131,7 +172,7 @@ module "alb" {
   acm_certificate_arn = var.acm_certificate_arn
 }
 
-# Diagram: "API Gateway Instance 1/2" + the five service boxes.
+# Diagram: "API Gateway Instance 1/2" + the five service boxes + web.
 module "ecs" {
   source = "./modules/ecs"
 
@@ -156,9 +197,23 @@ module "ecs" {
   token_verify_mode            = var.token_verify_mode
   cognito_issuer               = local.cognito_issuer
   cognito_client_id            = local.cognito_web_client_id
-  web_public_url               = var.web_public_url
+  cognito_hosted_ui_domain     = local.cognito_hosted_ui_base
+  web_public_url               = local.web_public_url
+  mail_from                    = var.mail_from
+  owner_email_fallback         = var.owner_email_fallback
   amadeus_flights_api_base_url = var.amadeus_flights_api_base_url
-  gateway_target_group_arn     = module.alb.gateway_target_group_arn
+  alb_target_group_arns = {
+    gateway = module.alb.gateway_target_group_arn
+    web     = module.alb.web_target_group_arn
+  }
+}
+
+# The HTTPS front door (see modules/cloudfront for why it exists at all).
+module "cloudfront" {
+  source = "./modules/cloudfront"
+
+  project      = var.project
+  alb_dns_name = module.alb.alb_dns_name
 }
 
 # Diagram: "CloudWatch" (the CI/CD pipeline's last box + alarms).
