@@ -2,11 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@smart/shared", "@smart/api-client"],
-  // Standalone output: `next build` emits a self-contained server.js plus a
-  // pruned node_modules tree — the artifact the web container runs directly
-  // (apps/web/Dockerfile; the 7th ECS service on AWS). Local development is
-  // unaffected: compose runs `next dev`, which ignores this setting.
-  output: "standalone",
   // The /api/* rewrite below proxies EVERY browser call, including the AI
   // plan flow (two sequential Gemini generations, 25–50s on the free tier).
   // Next's rewrite proxy has its own ceiling — proxyTimeout, default 30s —

@@ -1,24 +1,10 @@
 # The public edge — diagram: "Route 53 → WAF → ALB".
 #
-# The ALB is the only public door. Path-based routing keeps the browser on one
-# origin (no CORS, session cookies just work):
-#
-#   /healthz*  → gateway target group (the API's aggregate health, public so
-#                an outside curl can see "all upstreams up")
-#   /api/*     → gateway target group (the diagram's "API Gateway Instance
-#                1 / Instance 2" — the two gateway tasks behind this group)
-#   everything else → web target group (the Next.js app, the "Clients" box)
-#
-# Listener-rule priorities: healthz(1) before api(2) before the default. The
-# target groups' own health checks probe targets DIRECTLY, bypassing these
-# rules — so the web app's /healthz and the gateway's /healthz never collide.
-#
-# Route53 and WAF are the count-gated optional flags of this module, both
-# defaulting OFF (they cost extra). TLS is NOT terminated here by default:
-# the CloudFront distribution (modules/cloudfront) is the HTTPS front door —
-# Cognito refuses non-HTTPS login callbacks for non-localhost origins, and
-# without a purchased domain the ALB has no certificate to serve. The
-# count-gated HTTPS listener below remains for a domain+ACM setup.
+# The ALB is the only public door: one listener → one target group → the two
+# gateway tasks (the diagram's "API Gateway Instance 1 / Instance 2"). Route53
+# and WAF are the count-gated optional flags of this module, both defaulting
+# OFF (they cost extra; the scaffold's default edge is plain HTTP via the ALB
+# DNS name).
 #
 # idle_timeout is raised to 120s to match the gateway's own upstream ceiling
 # (UPSTREAM_TIMEOUT_MS, services/gateway): an AI plan generation can legally
@@ -65,68 +51,7 @@ resource "aws_lb_target_group" "gateway" {
   tags = { Name = "${var.project}-gateway-tg" }
 }
 
-# The web app's target group — the ALB listener's DEFAULT destination (every
-# path that is not the API). Health checks hit the web app's own /healthz
-# (apps/web/app/healthz) directly at the target, not through the rules below.
-resource "aws_lb_target_group" "web" {
-  name        = "${var.project}-web-tg"
-  port        = var.web_container_port
-  protocol    = "HTTP"
-  vpc_id      = var.vpc_id
-  target_type = "ip"
-
-  health_check {
-    path                = "/healthz"
-    port                = "traffic-port"
-    interval            = 15
-    timeout             = 5
-    healthy_threshold   = 2
-    unhealthy_threshold = 3
-    matcher             = "200-399"
-  }
-
-  # Next.js standalone cold start is fast; 30s of drain covers a rolling swap.
-  deregistration_delay = 30
-
-  tags = { Name = "${var.project}-web-tg" }
-}
-
-# ── Listener rules: /healthz* and /api/* are the gateway's; the rest is web ──
-
-resource "aws_lb_listener_rule" "gateway_healthz" {
-  listener_arn = aws_lb_listener.http.arn
-  priority     = 1
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.gateway.arn
-  }
-
-  condition {
-    path_pattern {
-      values = ["/healthz", "/healthz/*"]
-    }
-  }
-}
-
-resource "aws_lb_listener_rule" "gateway_api" {
-  listener_arn = aws_lb_listener.http.arn
-  priority     = 2
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.gateway.arn
-  }
-
-  condition {
-    path_pattern {
-      values = ["/api/*"]
-    }
-  }
-}
-
-# Default door: plain HTTP to the web app. Fine for a demo; add a
-# certificate for ALB-level HTTPS (CloudFront already provides HTTPS).
+# Default door: plain HTTP. Fine for a demo; add a certificate for HTTPS.
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = 80
@@ -134,13 +59,12 @@ resource "aws_lb_listener" "http" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.web.arn
+    target_group_arn = aws_lb_target_group.gateway.arn
   }
 }
 
 # HTTPS exists only when an ACM certificate ARN is provided (request the cert
-# in the ACM console first — DNS-validated certs are free). Same routing
-# rules as the HTTP listener.
+# in the ACM console first — DNS-validated certs are free).
 resource "aws_lb_listener" "https" {
   count = var.acm_certificate_arn != "" ? 1 : 0
 
@@ -152,45 +76,7 @@ resource "aws_lb_listener" "https" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.web.arn
-  }
-}
-
-# Mirror the HTTP listener's gateway rules onto the HTTPS listener when it
-# exists (priorities restart per listener, so 1 and 2 are free there too).
-resource "aws_lb_listener_rule" "gateway_healthz_tls" {
-  count = var.acm_certificate_arn != "" ? 1 : 0
-
-  listener_arn = aws_lb_listener.https[0].arn
-  priority     = 1
-
-  action {
-    type             = "forward"
     target_group_arn = aws_lb_target_group.gateway.arn
-  }
-
-  condition {
-    path_pattern {
-      values = ["/healthz", "/healthz/*"]
-    }
-  }
-}
-
-resource "aws_lb_listener_rule" "gateway_api_tls" {
-  count = var.acm_certificate_arn != "" ? 1 : 0
-
-  listener_arn = aws_lb_listener.https[0].arn
-  priority     = 2
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.gateway.arn
-  }
-
-  condition {
-    path_pattern {
-      values = ["/api/*"]
-    }
   }
 }
 

@@ -29,29 +29,16 @@ export interface Storage {
   presignGetUrl(key: string, expiresInSeconds?: number): Promise<string>;
 }
 
-/**
- * Resolves static S3 credentials from env. BOTH keys must be present; when
- * either is absent this returns undefined so the AWS SDK's default provider
- * chain is used instead. That chain includes the ECS task IAM role — which a
- * defaulted or half-present credentials object would silently OVERRIDE,
- * failing every call's signature. In compose mode SeaweedFS accepts any
- * pair, so the static keys are a local-only concern.
- */
-export function storageCredentialsFromEnv():
-  | { accessKeyId: string; secretAccessKey: string }
-  | undefined {
-  const accessKeyId = env("S3_ACCESS_KEY_ID");
-  const secretAccessKey = env("S3_SECRET_ACCESS_KEY");
-  return accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : undefined;
-}
-
 export function createStorage(client?: S3Client, presignClient?: S3Client): Storage {
   const endpoint = env("S3_ENDPOINT");
   const publicEndpoint = env("S3_PUBLIC_ENDPOINT");
   const bucket = env("S3_BUCKET", "si-files");
   const forcePathStyle = env("S3_FORCE_PATH_STYLE", endpoint ? "true" : "false") === "true";
   const region = env("S3_REGION", "ap-southeast-1");
-  const credentials = storageCredentialsFromEnv();
+  const credentials = {
+    accessKeyId: env("S3_ACCESS_KEY_ID", "smart"),
+    secretAccessKey: env("S3_SECRET_ACCESS_KEY", "smart-local-dev"),
+  };
 
   const s3 =
     client ??
@@ -59,7 +46,7 @@ export function createStorage(client?: S3Client, presignClient?: S3Client): Stor
       region,
       ...(endpoint ? { endpoint } : {}),
       forcePathStyle,
-      ...(credentials ? { credentials } : {}),
+      credentials,
     });
 
   // The data path uses `s3`; URLs are signed for the browser-facing host.
@@ -68,7 +55,7 @@ export function createStorage(client?: S3Client, presignClient?: S3Client): Stor
   const presigner =
     presignClient ??
     (publicEndpoint
-      ? new S3Client({ region, endpoint: publicEndpoint, forcePathStyle, ...(credentials ? { credentials } : {}) })
+      ? new S3Client({ region, endpoint: publicEndpoint, forcePathStyle, credentials })
       : s3);
 
   return {

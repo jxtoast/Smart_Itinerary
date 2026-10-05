@@ -2,12 +2,12 @@
 #
 # ci.yml is the CI half: on every push it builds and tests everything, then
 # throws the environment away. This workflow is the other half — it ships the
-# seven images (six backends + the web app) to AWS and rolls the ECS services
-# onto them: the diagram's GitHub → GitHub Actions → ECR → ECS → CloudWatch
-# path.
+# six backend images to AWS and rolls the ECS services onto them: the
+# diagram's GitHub → GitHub Actions → ECR → ECS → CloudWatch path.
 #
-# It is deliberately DORMANT until real infrastructure exists. Run it from
-# the Actions tab ("Run workflow"):
+# It is deliberately DORMANT until real infrastructure exists (the repo's $0
+# rule — infra/terraform is checked in, never applied). Run it from the
+# Actions tab ("Run workflow"):
 #   * with no AWS secrets / no applied Terraform, the preflight job lists
 #     exactly what's missing and the run finishes GREEN — a no-op by design,
 #     not a broken pipeline;
@@ -25,8 +25,9 @@
 #     (modules/ecs, image_tag defaults to "latest") — so "deploy" simply
 #     means: push `:latest`, then force ECS to pull it again
 #     (update-service --force-new-deployment) and wait for stability.
-#   * Rollout order is backends first, then the gateway, then the web app:
-#     each layer flips only once everything it calls is already stable.
+#   * Rollout order is backends first, gateway last: the gateway fronts all
+#     four upstream services, so it only flips once the new upstreams are
+#     stable behind it.
 #
 # First real deploy only: the four RDS instances start EMPTY — db/init/*.sql
 # are compose volume-mount init scripts, which RDS does not run. Load the DDL
@@ -60,10 +61,10 @@ env:
   # MUST mirror infra/terraform: the region default (variables.tf), the
   # project name (modules/*/variables.tf — it prefixes cluster/task names),
   # and service_names (main.tf local — also the ECR repo names). Rollout
-  # order encodes the "backends first, gateway, then web" rule from the header.
+  # order encodes the "backends first, gateway last" rule from the header.
   AWS_REGION: ap-southeast-1
   ECS_CLUSTER: smart-itinerary
-  SERVICES: email-service auth-service itinerary-service gemini-service tools-service gateway web
+  SERVICES: email-service auth-service itinerary-service gemini-service tools-service gateway
 
 jobs:
   # ---------------------------------------------------------------- job 1
@@ -119,35 +120,26 @@ jobs:
           fi
 
   # ---------------------------------------------------------------- job 2
-  # Build and push every image — one parallel job per image. The matrix is
-  # exactly infra/terraform's service_names (== ECR repo names == the
-  # docker-compose service names, plus web); the Dockerfile path is
-  # per-entry because six live at services/<name>/Dockerfile while the web
-  # app's lives at apps/web/Dockerfile. Build context is the repo root for
-  # all of them (as in docker-compose.yml).
+  # Build and push every backend image — one parallel job per image. The
+  # matrix is exactly infra/terraform's service_names (== ECR repo names ==
+  # docker-compose service names); every Dockerfile lives at
+  # services/<name>/Dockerfile with the repo root as build context (as in
+  # docker-compose.yml).
   push-image:
     if: needs.preflight.outputs.deployable == 'true'
     needs: [preflight]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: gateway
-            dockerfile: services/gateway/Dockerfile
-          - service: auth-service
-            dockerfile: services/auth-service/Dockerfile
-          - service: itinerary-service
-            dockerfile: services/itinerary-service/Dockerfile
-          - service: gemini-service
-            dockerfile: services/gemini-service/Dockerfile
-          - service: tools-service
-            dockerfile: services/tools-service/Dockerfile
-          - service: email-service
-            dockerfile: services/email-service/Dockerfile
-          - service: web
-            dockerfile: apps/web/Dockerfile
+        service:
+          - gateway
+          - auth-service
+          - itinerary-service
+          - gemini-service
+          - tools-service
+          - email-service
     steps:
       - uses: actions/checkout@v4
 
@@ -169,7 +161,7 @@ jobs:
           tag="${{ inputs.image_tag }}"
           sha_tag="${GITHUB_SHA::7}"
 
-          docker build --file "${{ matrix.dockerfile }}" \
+          docker build --file "services/${{ matrix.service }}/Dockerfile" \
             --tag "$image:$tag" --tag "$image:$sha_tag" .
 
           docker push "$image:$tag"
@@ -195,7 +187,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Roll every service onto the new images (backends first, gateway, then web)
+      - name: Roll every service onto the new images (backends first, gateway last)
         run: |
           set -euo pipefail
           for svc in $SERVICES; do
@@ -209,6 +201,6 @@ jobs:
 
           {
             echo "## UAT rollout complete"
-            echo "All seven services stable on \`:latest\` (commit ${{ github.sha }})."
-            echo "Public entry point: \`terraform -chdir=infra/terraform output web_public_url\` (the CloudFront https domain)."
+            echo "All six services stable on \`:latest\` (commit ${{ github.sha }})."
+            echo "Public entry point: the ALB DNS name — \`terraform -chdir=infra/terraform output alb_dns_name\`."
           } >> "$GITHUB_STEP_SUMMARY"

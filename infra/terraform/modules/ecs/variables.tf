@@ -56,9 +56,9 @@ variable "gateway_desired_count" {
   default     = 2
 }
 
-variable "alb_target_group_arns" {
-  description = "ALB target groups by logical name (modules/alb): 'gateway' for the API path, 'web' for the web app. Services whose alb_target_group is set register into the matching group."
-  type        = map(string)
+variable "gateway_target_group_arn" {
+  description = "ALB target group the gateway registers into (modules/alb)."
+  type        = string
 }
 
 variable "secret_arns" {
@@ -94,28 +94,10 @@ variable "cognito_client_id" {
   default     = ""
 }
 
-variable "cognito_hosted_ui_domain" {
-  description = "COGNITO_HOSTED_UI_DOMAIN for the web app's server-side sign-in routes — empty when the Cognito module is disabled."
-  type        = string
-  default     = ""
-}
-
 variable "web_public_url" {
-  description = "Browser origin of the web app — share links (WEB_PUBLIC_URL), email links (WEB_APP_URL) and the web task's Cognito redirect origin. Empty = entry dropped (compose-parity local dev)."
+  description = "Browser origin of the web app — share links (WEB_PUBLIC_URL) and email links (WEB_APP_URL)."
   type        = string
-  default     = ""
-}
-
-variable "mail_from" {
-  description = "Verified SES sender address for the From header (email-service MAIL_FROM). Empty = entry dropped (compose-parity; SES will reject sends until set)."
-  type        = string
-  default     = ""
-}
-
-variable "owner_email_fallback" {
-  description = "Fallback recipient when an event carries no owner email (email-service OWNER_EMAIL_FALLBACK). Empty = entry dropped (the mailer's local default applies)."
-  type        = string
-  default     = ""
+  default     = "http://localhost:3000"
 }
 
 variable "amadeus_flights_api_base_url" {

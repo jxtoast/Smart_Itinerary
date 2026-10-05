@@ -14,7 +14,6 @@ import {
   ROUTING_KEYS,
   signDevToken,
   createTokenVerifier,
-  storageCredentialsFromEnv,
   UuidLikeSchema,
 } from "../src/server";
 
@@ -119,34 +118,6 @@ async function main(): Promise<void> {
     throw new Error("UuidLikeSchema accepted a non-UUID string");
   }
   console.log("UuidLikeSchema ok: cognito sub + rfc uuid + garbage");
-
-  // 7. Storage credentials resolution — both keys present → static pair
-  //    (compose/SeaweedFS); anything less → undefined, so the AWS SDK default
-  //    chain (the ECS task role) is used instead of being overridden.
-  const previousAccessKey = process.env.S3_ACCESS_KEY_ID;
-  const previousSecretKey = process.env.S3_SECRET_ACCESS_KEY;
-  try {
-    delete process.env.S3_ACCESS_KEY_ID;
-    delete process.env.S3_SECRET_ACCESS_KEY;
-    if (storageCredentialsFromEnv() !== undefined) {
-      throw new Error("storage credentials resolved without any env keys (would override the ECS task role)");
-    }
-    process.env.S3_ACCESS_KEY_ID = "key-only";
-    if (storageCredentialsFromEnv() !== undefined) {
-      throw new Error("storage credentials resolved from a half-present pair");
-    }
-    process.env.S3_SECRET_ACCESS_KEY = "secret-too";
-    const pair = storageCredentialsFromEnv();
-    if (pair?.accessKeyId !== "key-only" || pair?.secretAccessKey !== "secret-too") {
-      throw new Error("storage credentials did not resolve from a complete pair");
-    }
-  } finally {
-    if (previousAccessKey === undefined) delete process.env.S3_ACCESS_KEY_ID;
-    else process.env.S3_ACCESS_KEY_ID = previousAccessKey;
-    if (previousSecretKey === undefined) delete process.env.S3_SECRET_ACCESS_KEY;
-    else process.env.S3_SECRET_ACCESS_KEY = previousSecretKey;
-  }
-  console.log("storage credentials ok: absent + partial + complete pair");
 
   console.log("\n@smart/shared smoke test: ALL GREEN");
 }
