@@ -20,7 +20,7 @@ terraform {
   # Versioning doubles as state history; default SSE protects the secrets
   # state inevitably contains. Adjust bucket + region here to match.
   backend "s3" {
-    bucket       = "smart-itinerary-tfstate-CHANGE-ME"
+    bucket       = "smart-itinerary-tfstate-terry12321"
     key          = "prod/terraform.tfstate"
     region       = "ap-southeast-1"
     use_lockfile = true
