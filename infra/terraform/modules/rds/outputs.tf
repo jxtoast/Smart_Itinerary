@@ -12,10 +12,13 @@ output "database_urls" {
     for key, db in local.databases :
     key => format(
       # sslmode=require: RDS Postgres 15+ defaults rds.force_ssl=1, and the
-      # pg driver (node-postgres ≥8.11) honours the parameter in the URL —
-      # so the ECS tasks AND the one-off DDL-loading psql tasks both connect
-      # over TLS with zero adapter code.
-      "postgres://%s:%s@%s:5432/%s?sslmode=require",
+      # pg driver honours the parameter in the URL — TLS with zero adapter
+      # code. uselibpqcompat=true: newer node-postgres versions made
+      # sslmode=require VERIFY the chain (which fails against RDS's AWS CA,
+      # not in Node's trust store -> SELF_SIGNED_CERT_IN_CHAIN); libpq
+      # semantics are "encrypt, don't verify" — the documented production
+      # hardening is verify-full + the RDS CA bundle (see README teardown).
+      "postgres://%s:%s@%s:5432/%s?sslmode=require&uselibpqcompat=true",
       var.master_username,
       random_password.master[key].result,
       aws_db_instance.this[key].address,
