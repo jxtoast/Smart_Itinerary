@@ -76,7 +76,7 @@ resource "aws_security_group" "alb" {
   name_prefix = "${var.project}-alb-"
   vpc_id      = aws_vpc.main.id
   # (Descriptions are ASCII-only — the AWS API rejects other characters.)
-  description = "Public HTTP(S) entry point (diagram: Route 53 -> WAF -> ALB)"
+  description = "Public HTTP(S) entry point (diagram: Route 53 - WAF - ALB)"
 
   ingress {
     description = "HTTP from anywhere (HTTPS listener is count-gated in modules/alb)"
@@ -115,7 +115,7 @@ resource "aws_security_group" "services" {
   description = "The six ECS services (gateway + 5 backends), compose-flat-network style"
 
   ingress {
-    description = "Service -> service (same security group), e.g. gateway -> gemini-service"
+    description = "Service to service (same security group), e.g. gateway to gemini-service"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"

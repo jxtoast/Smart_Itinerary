@@ -39,7 +39,7 @@ resource "aws_sns_topic_subscription" "email" {
 # unreachable even if everything else looks fine.
 resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
   alarm_name          = "${var.project}-alb-unhealthy-hosts"
-  alarm_description   = "The ALB has no healthy gateway target — the app is down."
+  alarm_description   = "The ALB has no healthy gateway target - the app is down."
   alarm_actions       = [aws_sns_topic.alarms.arn]
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
@@ -60,7 +60,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
 # Server-error rate from the whole stack (gateway 5xx + forwarded upstream 5xx).
 resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
   alarm_name          = "${var.project}-alb-5xx"
-  alarm_description   = "Sustained 5xx rate at the ALB — an upstream is failing behind the gateway."
+  alarm_description   = "Sustained 5xx rate at the ALB - an upstream is failing behind the gateway."
   alarm_actions       = [aws_sns_topic.alarms.arn]
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 3
