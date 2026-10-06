@@ -18,6 +18,7 @@ import {
   callbackUrl,
   clearCookie,
   exchangeCodeForTokens,
+  publicOrigin,
   readCognitoConfig,
   sanitizeNextPath,
 } from "@/lib/auth/cognito";
@@ -66,7 +67,10 @@ export async function GET(request: NextRequest) {
       redirectUri: callbackUrl(request.nextUrl.origin),
     });
 
-    const response = NextResponse.redirect(new URL(next, request.url));
+    // Redirect base is the deterministic public origin (WEB_PUBLIC_URL /
+    // CloudFront on AWS, request origin on localhost) — never the raw request
+    // URL, whose Host behind CloudFront→ALB is an internal name.
+    const response = NextResponse.redirect(new URL(next, publicOrigin(request.nextUrl.origin)));
     // Session cookie = the Cognito id_token: it carries sub/email/name (what
     // auth-service upserts) and its aud matches the app client the gateway
     // verifies against. TTL follows the token's remaining lifetime.
