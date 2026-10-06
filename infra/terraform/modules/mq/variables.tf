@@ -28,11 +28,12 @@ variable "engine_version" {
 }
 
 variable "instance_class" {
-  # mq.t3.small: the smallest instance type this account's RabbitMQ engine
-  # accepts — mq.t3.micro is rejected at broker creation.
-  description = "Broker instance class (mq.t3.small is the smallest the RabbitMQ engine accepts here)."
+  # RabbitMQ on this account runs ONLY on m5/m7g — t3 types are rejected at
+  # creation (AWS's error lists the valid set). mq.m7g.medium is the cheapest
+  # of them (Graviton).
+  description = "Broker instance class (RabbitMQ here accepts only m5/m7g; m7g.medium is the cheapest)."
   type        = string
-  default     = "mq.t3.small"
+  default     = "mq.m7g.medium"
 }
 
 variable "broker_username" {

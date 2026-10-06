@@ -16,7 +16,7 @@
 # verbatim to amqplib, which switches to TLS on the amqps:// scheme — so this
 # is an env-only swap for every publisher/consumer.
 #
-# Cost: mq.t3.small single-instance ≈ $82/month while up — the most expensive
+# Cost: mq.m7g.medium single-instance ≈ $65/month while up — the most expensive
 # single box after RDS. The demo-rhythm answer is terraform destroy (README).
 
 resource "aws_security_group" "broker" {
