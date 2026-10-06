@@ -16,10 +16,11 @@
 # DISABLED for everything (both routes are dynamic: API responses and
 # server-rendered pages; a cached /api answer would be a correctness bug).
 #
-# Timeouts: origin_read_timeout is raised to 150s (default 30s) — the
-# gateway legally holds an AI plan request for up to 120s (its
-# UPSTREAM_TIMEOUT_MS ceiling, mirrored by the ALB idle_timeout), and a CDN
-# that gives up at 30s would kill exactly the marquee feature.
+# Timeouts: the API enforces the legacy 1-60s origin read timeout on this
+# account (150 and 180 were both rejected at creation). Real AI plans take
+# 25-50s and fit inside 60s; the gateway's own 120s ceiling only matters for
+# pathological cases, which now end as a CloudFront 504 covered by the
+# page's error state.
 
 # AWS-managed policies, referenced by name so no well-known-ID is hardcoded.
 data "aws_cloudfront_cache_policy" "disabled" {
@@ -46,13 +47,16 @@ resource "aws_cloudfront_distribution" "main" {
     origin_id   = "${var.project}-alb"
 
     # The ALB serves plain HTTP (TLS terminates here at the edge); the
-    # 150s read timeout covers the gateway's 120s AI-plan ceiling.
+    # The API enforces the legacy 1-60s read-timeout range here (150 and 180
+    # were both rejected at creation), so 60s it is. Real AI plans take 25-50s
+    # and fit; a pathological >60s plan will die at the edge with a 504 -
+    # the page's honest error state covers that.
     custom_origin_config {
       http_port                = 80
       https_port               = 443
       origin_protocol_policy   = "http-only"
       origin_ssl_protocols     = ["TLSv1.2"]
-      origin_read_timeout      = 150
+      origin_read_timeout      = 60
       origin_keepalive_timeout = 60
     }
   }

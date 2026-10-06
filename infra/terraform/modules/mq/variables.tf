@@ -28,9 +28,11 @@ variable "engine_version" {
 }
 
 variable "instance_class" {
-  description = "Broker instance class. mq.t3.micro is the cheapest and fine for demo event volume."
+  # mq.t3.small: the smallest instance type this account's RabbitMQ engine
+  # accepts — mq.t3.micro is rejected at broker creation.
+  description = "Broker instance class (mq.t3.small is the smallest the RabbitMQ engine accepts here)."
   type        = string
-  default     = "mq.t3.micro"
+  default     = "mq.t3.small"
 }
 
 variable "broker_username" {

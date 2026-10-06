@@ -18,12 +18,12 @@ swap table at the top of `variables.tf` is the map).
 | `modules/network` | (implied VPC) | vpc-lite: 1 VPC, public subnets ×2 AZs, IGW, **no NAT**; security groups: ALB → services → DBs (+ the broker's own) |
 | `modules/ecr` | "ECR" (CI/CD) | 7 repos — the six services + `web` — compose names |
 | `modules/ecs` | "API Gateway Instance 1/2" + the 5 service boxes + web | Fargate cluster, 7 task definitions + services; **gateway `desired_count = 2`** behind the ALB; Cloud Map DNS for the backends (compose's hostnames); `/healthz` container health checks; images from ECR; **auto-scaling** on every service (target-tracking CPU: gateway 2–4, rest 1–3) |
-| `modules/mq` | "Message Broker (RabbitMQ)" | Amazon MQ for RabbitMQ, single-instance `mq.t3.micro`, private ENI, AMQPS 5671 from the services SG only; emits the `amqps://…:5671` URL into the existing `broker/AMQP_URL` secret |
+| `modules/mq` | "Message Broker (RabbitMQ)" | Amazon MQ for RabbitMQ, single-instance `mq.t3.small`, private ENI, AMQPS 5671 from the services SG only; emits the `amqps://…:5671` URL into the existing `broker/AMQP_URL` secret |
 | `modules/rds` | "RDS" (database-per-service) | 4× `db.t4g.micro` Postgres 16 — `smart_auth`, `smart_itinerary`, `smart_gemini`, `smart_tools`; DATABASE_URLs carry `?sslmode=require` (RDS 15+ forces TLS) |
 | `modules/s3` | "Amazon S3 (File Storage)" | 1 private bucket for PDF exports (the local S3-compatible swap) |
 | `modules/secrets` | "AWS Secrets Manager" | `GEMINI_API_KEY`, `AMADEUS_API_KEY`, `JWT_DEV_SECRET` (generated), `AMQP_URL` (from modules/mq), SES SMTP creds, 4× `DATABASE_URL` (composed from RDS) |
 | `modules/alb` | "Route 53 → WAF → ALB" | Public ALB, path-routed: `/healthz*` + `/api/*` → gateway target group, default → web target group; Route53 + WAF + HTTPS listener are count-gated, **default OFF** (TLS lives at CloudFront) |
-| `modules/cloudfront` | *(added edge box)* | HTTPS front door → ALB origin, caching disabled, **origin read timeout 180s** (the AI plan flow legally runs 25–50s). Exists because Cognito refuses non-HTTPS login callbacks for non-localhost origins and the stack has no domain — the default `*.cloudfront.net` certificate is the free fix |
+| `modules/cloudfront` | *(added edge box)* | HTTPS front door → ALB origin, caching disabled, **origin read timeout 60s (the API's legacy ceiling)** (the AI plan flow legally runs 25–50s). Exists because Cognito refuses non-HTTPS login callbacks for non-localhost origins and the stack has no domain — the default `*.cloudfront.net` certificate is the free fix |
 | `modules/cloudwatch` | "CloudWatch" (CI/CD) | 7 log groups (7-day retention), SNS topic, 3 alarm families (no healthy gateway / ALB 5xx / RDS CPU) |
 | `modules/cognito` | "Amazon Cognito" | The T2.2 pool — **applied and live** (T1.10). The app client's callback/logout allowlists automatically include the CloudFront origin (root `main.tf` interpolates it) alongside localhost |
 
@@ -120,7 +120,7 @@ ap-southeast-1, on-demand, running 24/7. Prices drift — treat every number as
 | Component | Sizing | ≈ $/month |
 |---|---|---|
 | RDS | 4 × `db.t4g.micro` + 20 GB gp3 each | ~$58 |
-| Amazon MQ | 1 × `mq.t3.micro` single-instance | ~$56 |
+| Amazon MQ | 1 × `mq.t3.small` single-instance (smallest this account accepts) | ~$82 |
 | ALB | 1 × ALB + small LCU | ~$22 |
 | ECS Fargate | 8 tasks × (0.25 vCPU / 0.5 GB) — gateway ×2 + 5 services + web | ~$51 |
 | Secrets Manager | 10 secrets × $0.40 | ~$4 |
@@ -129,7 +129,7 @@ ap-southeast-1, on-demand, running 24/7. Prices drift — treat every number as
 | CloudWatch | 7-day logs + ~6 alarms | ~$1 |
 | ECR | 7 small images | ~$0.50 |
 | CloudFront | demo traffic (always-free tier covers the first ~1 TB) | ~$0 |
-| **Total (always on)** | | **≈ $195–200/mo** |
+| **Total (always on)** | | **≈ $220–230/mo** |
 | Optional: WAF | web ACL + 2 managed rule groups | + ~$8 |
 | Optional: Route53 | hosted zone | + ~$0.50 |
 | **Cognito** | **free tier** covers a class demo | **$0** |
