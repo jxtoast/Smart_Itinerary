@@ -196,7 +196,7 @@ variable "rds_instance_class" {
 variable "rds_engine_version" {
   description = "Postgres major/minor. Compose runs postgres:16-alpine; pin a version your region offers (README shows how to list them)."
   type        = string
-  default     = "16.4"
+  default     = "16.15"
 }
 
 # ── Cognito (modules/cognito) ─────────────────────────────────────────────────

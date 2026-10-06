@@ -16,7 +16,7 @@
 # DISABLED for everything (both routes are dynamic: API responses and
 # server-rendered pages; a cached /api answer would be a correctness bug).
 #
-# Timeouts: origin_read_timeout is raised to 180s (default 30s) — the
+# Timeouts: origin_read_timeout is raised to 150s (default 30s) — the
 # gateway legally holds an AI plan request for up to 120s (its
 # UPSTREAM_TIMEOUT_MS ceiling, mirrored by the ALB idle_timeout), and a CDN
 # that gives up at 30s would kill exactly the marquee feature.
@@ -46,13 +46,13 @@ resource "aws_cloudfront_distribution" "main" {
     origin_id   = "${var.project}-alb"
 
     # The ALB serves plain HTTP (TLS terminates here at the edge); the
-    # 180s read timeout covers the gateway's 120s AI-plan ceiling.
+    # 150s read timeout covers the gateway's 120s AI-plan ceiling.
     custom_origin_config {
       http_port                = 80
       https_port               = 443
       origin_protocol_policy   = "http-only"
       origin_ssl_protocols     = ["TLSv1.2"]
-      origin_read_timeout      = 180
+      origin_read_timeout      = 150
       origin_keepalive_timeout = 60
     }
   }

@@ -71,6 +71,9 @@ resource "aws_mq_broker" "rabbitmq" {
   # (there is no maintenance window worth waiting for at demo scale).
   apply_immediately = true
 
+  # Required by the RabbitMQ engine (AWS rejects brokers without it).
+  auto_minor_version_upgrade = true
+
   logs {
     # RabbitMQ general logs to CloudWatch — cheap, and the first place to
     # look when a reminder doesn't fire.
