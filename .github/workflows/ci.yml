@@ -28,6 +28,13 @@
 #     main push, which is noise rather than security. The AIKIDO_SECRET_KEY
 #     repo secret is left in place (admin-managed, harmless unused) and the
 #     Aikido cloud-side integration can be disconnected by its owner.
+#   * ADDED 2026-10-07 (T4.10): CI now exercises what gets deployed, not just
+#     what gets typed. `terraform` runs the infra gate the README names
+#     (fmt -check + init -backend=false + validate) so infrastructure changes
+#     reach an apply only after passing CI; `build-web-image` builds the 7th
+#     container (apps/web/Dockerfile) so the web image is CI-exercised rather
+#     than locally built. (Image PUSH to ECR remains the deploy leg's job —
+#     deploy-uat.yml, dormant until its repo secrets land.)
 #
 # Legacy frontend env: the monolith pages still in apps/web fail `next build`
 # without Supabase env (their cleanup is T3.4). CI passes obvious placeholder
@@ -238,3 +245,49 @@ jobs:
         with:
           name: cypress-screenshots
           path: apps/web/cypress/screenshots
+
+  # ---------------------------------------------------------------- job 5
+  # Infrastructure gate (T4.10): the same checks the Terraform README names
+  # as the repo's CI-level bar — formatting, provider resolution WITHOUT the
+  # remote state backend (the bucket exists only in the operator's account)
+  # and full configuration validation. An infra change that fails here never
+  # reaches an operator's apply. fmt/init/validate are read-only; plan/apply
+  # stay human-gated (they touch real infrastructure and cost money).
+  terraform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.0
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive
+
+      # -backend=false: the remote state bucket lives in the operator's AWS
+      # account; CI validates configuration only.
+      - name: Initialize providers (no state backend)
+        run: terraform init -backend=false -input=false
+
+      - name: Validate configuration
+        run: terraform validate
+
+  # ---------------------------------------------------------------- job 6
+  # Build the web container image (T4.10) — the 7th ECS service. The
+  # `build-web` job above proves the Next build compiles; this proves the
+  # full image assembles: workspace-aware npm ci, the standalone build, and
+  # the multi-stage runtime with sharp. No push here — publishing to ECR is
+  # the deploy leg's job (deploy-uat.yml).
+  build-web-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the web image (linux/amd64 — the Fargate architecture)
+        run: docker build --platform linux/amd64 -f apps/web/Dockerfile .
