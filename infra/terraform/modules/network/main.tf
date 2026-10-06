@@ -123,9 +123,17 @@ resource "aws_security_group" "services" {
   }
 
   ingress {
-    description     = "Browser traffic arrives only via the ALB, and only at the gateway"
+    description     = "Browser traffic arrives only via the ALB, and only at the gateway (API path)"
     from_port       = var.gateway_container_port
     to_port         = var.gateway_container_port
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  ingress {
+    description     = "The ALB also fronts the web app (default listener path)"
+    from_port       = var.web_container_port
+    to_port         = var.web_container_port
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
   }

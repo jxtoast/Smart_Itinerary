@@ -18,7 +18,13 @@ variable "az_count" {
 }
 
 variable "gateway_container_port" {
-  description = "The gateway's container port — the only port the ALB may reach through the services security group (the ALB fronts no other service)."
+  description = "The gateway's container port — the ALB's API target group backend."
   type        = number
   default     = 8080
+}
+
+variable "web_container_port" {
+  description = "The web app's container port — the ALB's default (non-API) target group backend."
+  type        = number
+  default     = 3000
 }

@@ -65,6 +65,7 @@ module "network" {
   vpc_cidr               = var.vpc_cidr
   az_count               = var.az_count
   gateway_container_port = 8080 # the ALB's API target (see modules/alb)
+  web_container_port     = 3000 # the ALB's default (web) target
 }
 
 # Diagram: "ECR" (the CI/CD pipeline's image registry).
