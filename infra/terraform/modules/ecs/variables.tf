@@ -118,6 +118,12 @@ variable "owner_email_fallback" {
   default     = ""
 }
 
+variable "gemini_model" {
+  description = "GEMINI_MODEL for gemini-service — empty = entry dropped (service default applies)."
+  type        = string
+  default     = ""
+}
+
 variable "amadeus_flights_api_base_url" {
   description = "Amadeus host (plain env in compose too — not a secret)."
   type        = string

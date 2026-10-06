@@ -127,6 +127,9 @@ locals {
           { name = "LOG_LEVEL", value = "info" },
           # Compose passes the Amadeus host as plain env — still no secret.
           { name = "AMADEUS_FLIGHTS_API_BASE_URL", value = var.amadeus_flights_api_base_url },
+          # Model override: pin a model the API key's project can serve
+          # (gemini-3.6-flash returned 503 high-demand on this account).
+          { name = "GEMINI_MODEL", value = var.gemini_model == "" ? null : var.gemini_model },
         ],
         local.auth_mode_env,
       )

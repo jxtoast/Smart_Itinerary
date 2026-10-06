@@ -203,6 +203,7 @@ module "ecs" {
   mail_from                    = var.mail_from
   owner_email_fallback         = var.owner_email_fallback
   amadeus_flights_api_base_url = var.amadeus_flights_api_base_url
+  gemini_model                 = var.gemini_model
   alb_target_group_arns = {
     gateway = module.alb.gateway_target_group_arn
     web     = module.alb.web_target_group_arn

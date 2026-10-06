@@ -117,6 +117,12 @@ variable "amadeus_api_key" {
   sensitive   = true
 }
 
+variable "gemini_model" {
+  description = "Gemini model override (gemini-service GEMINI_MODEL). Empty = the service default. Use a model the API key's project can actually serve (checked via ListModels) — e.g. gemini-flash-latest tracks the currently-servable flash."
+  type        = string
+  default     = ""
+}
+
 variable "amadeus_flights_api_base_url" {
   description = "Amadeus host. The test host mirrors compose; swap to https://api.amadeus.com/v2 in production (not a secret — plain env)."
   type        = string
