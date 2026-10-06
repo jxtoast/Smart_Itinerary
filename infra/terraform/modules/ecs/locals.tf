@@ -222,6 +222,11 @@ locals {
       env = [
         { name = "NODE_ENV", value = "production" },
         { name = "PORT", value = "3000" },
+        # Next standalone's server.js binds to process.env.HOSTNAME — and ECS
+        # injects the CONTAINER hostname into that variable, which made the
+        # server listen on loopback only: the ECS healthcheck (localhost)
+        # passed while every ALB check was refused. Bind all interfaces.
+        { name = "HOSTNAME", value = "0.0.0.0" },
         # Compose parity: the rewrite target, resolvable via Cloud Map even
         # though ALB path routing handles public /api/* traffic first.
         { name = "API_GATEWAY_URL", value = "http://gateway.${local.namespace_name}:8080" },
