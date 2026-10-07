@@ -10,13 +10,14 @@ import {
 import { createGeminiRouter } from "./routes/geminiRoutes";
 import { cookieMiddleware } from "./cookies";
 import { FlightsService } from "./flights/FlightsService";
-import { GeminiService } from "./gemini/GeminiService";
+import { GeminiService, parseGeminiKeys } from "./gemini/GeminiService";
 import {
   AMADEUS_API_KEY_VAR,
   AMADEUS_BASE_URL_VAR,
   DEFAULT_AMADEUS_BASE_URL,
   DEFAULT_GEMINI_MODEL,
   GEMINI_API_KEY_VAR,
+  GEMINI_API_KEYS_VAR,
   GEMINI_MODEL_VAR,
 } from "./config";
 
@@ -54,9 +55,17 @@ const pool = createDbPool();
 
 // Third-party clients are built once at boot; null = capability disabled
 // (its endpoints answer 503 with an explanation instead of crashing).
-const geminiService = process.env[GEMINI_API_KEY_VAR]
-  ? new GeminiService(process.env[GEMINI_API_KEY_VAR], env(GEMINI_MODEL_VAR, DEFAULT_GEMINI_MODEL))
-  : null;
+// Gemini accepts a key POOL: GEMINI_API_KEYS (comma-separated) wins over the
+// single GEMINI_API_KEY — pooled keys rotate automatically when one hits its
+// day quota or is rejected (see GeminiService.generateContent).
+const geminiApiKeys = parseGeminiKeys(
+  process.env[GEMINI_API_KEYS_VAR],
+  process.env[GEMINI_API_KEY_VAR]
+);
+const geminiService =
+  geminiApiKeys.length > 0
+    ? new GeminiService(geminiApiKeys, env(GEMINI_MODEL_VAR, DEFAULT_GEMINI_MODEL))
+    : null;
 const flightsService = process.env[AMADEUS_API_KEY_VAR]
   ? new FlightsService(env(AMADEUS_BASE_URL_VAR, DEFAULT_AMADEUS_BASE_URL), process.env[AMADEUS_API_KEY_VAR])
   : null;

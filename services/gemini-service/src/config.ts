@@ -14,6 +14,8 @@
 
 // --- Google Gemini (AI generation) -----------------------------------------
 export const GEMINI_API_KEY_VAR = "GEMINI_API_KEY";
+/** Optional key POOL (comma-separated) — rotated on quota exhaustion/rejection. */
+export const GEMINI_API_KEYS_VAR = "GEMINI_API_KEYS";
 /** Model id can be pinned via env in case Google deprecates the default. */
 export const GEMINI_MODEL_VAR = "GEMINI_MODEL";
 // gemini-2.0-flash (the monolith's model) was retired by Google — the API's
