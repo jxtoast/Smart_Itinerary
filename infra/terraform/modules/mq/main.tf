@@ -46,7 +46,7 @@ resource "aws_security_group" "broker" {
 
 resource "aws_mq_broker" "rabbitmq" {
   broker_name        = "${var.project}-rabbitmq"
-  engine_type        = "RABBITMQ"
+  engine_type        = "RabbitMQ"
   engine_version     = var.engine_version
   host_instance_type = var.instance_class
   # Private ENI in the public subnet — VPC-reachable, internet-invisible.
