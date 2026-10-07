@@ -6,6 +6,7 @@ import {
   createBroker,
   createLogger,
   defaultBrokerUrl,
+  env,
 } from "@smart/shared/src/server";
 
 /**
@@ -48,14 +49,17 @@ function buildEvents(tripStart: string): {
   invited: GroupInvitedEvent;
 } {
   // Passthrough field: the shared event schema has no owner email yet, but
-  // email-service reads this one when present (see handlers.ts).
+  // email-service reads this one when present (see handlers.ts). The value
+  // comes from OWNER_EMAIL_FALLBACK when set — on AWS (SES sandbox) the
+  // recipient must be a VERIFIED identity, and .local addresses can never
+  // be verified, so the fake .local default is only for Mailpit.
   const created: ItineraryCreatedEvent = {
     itineraryId: crypto.randomUUID(),
     userId: DEMO_USER_ID,
     destination: "Tokyo",
     startDate: tripStart,
     endDate: isoAt(24 + 0.5 / 60 + 4 * 24),
-    ownerEmail: "traveller@smart-itinerary.local",
+    ownerEmail: env("OWNER_EMAIL_FALLBACK", "traveller@smart-itinerary.local"),
   };
   const shared: ItinerarySharedEvent = {
     shareToken: crypto.randomUUID(),
