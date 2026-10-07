@@ -10,7 +10,7 @@ next demo. Written after the first live deployment (2026-10-07).
 
 | Destroyed (data included) | Survives (free or ≈pennies) |
 |---|---|
-| 8 Fargate tasks (all services, incl. web) | **Cognito pool** — $0, kept so the *local* compose login keeps working |
+| 8 Fargate tasks (all services, incl. web) | **The entire Cognito module** — pool, Google IdP, OAuth client, hosted domain: $0, all kept, so the *local* compose login keeps working untouched |
 | 4× RDS Postgres (**saved itineraries — gone**, by design; `skip_final_snapshot`) | Terraform state bucket (`smart-itinerary-tfstate-terry12321`) — pennies, holds the pool's state |
 | Amazon MQ broker (queued messages — gone) | SES verified identities + sandbox (nothing billed) |
 | ALB, CloudFront distribution (the URL goes dead) | IAM users/keys (`smart-itinerary-terraform`, `smart-itinerary-ses-sender`) — $0; delete in console if you want max tidiness |
@@ -37,8 +37,9 @@ cd infra/terraform
 # 0. (optional but wise) see exactly what will die:
 terraform plan -destroy -no-color | tail -5
 
-# 1. destroy everything EXCEPT the Cognito pool (it is $0 and the local
-#    compose login points at it):
+# 1. destroy everything EXCEPT the Cognito module (pool + Google IdP + OAuth
+#    client + hosted domain — all $0, and the local compose login points at
+#    the client):
 terraform destroy \
   -target=module.cloudfront \
   -target=module.ecs \
@@ -115,6 +116,13 @@ The CloudFront URL changes on each redeploy (new distribution domain) —
 grab it with `terraform output web_public_url`, and remember Cognito's
 callback list must include it (it is interpolated automatically, but the
 Google-consent side needs no changes).
+
+Verified on the first teardown (2026-10-07): the targeted destroy preserved
+the whole Cognito module — after it, the hosted UI still answered 302 with
+the original client id, and localhost sign-in needed zero changes. Note one
+artifact: a later `-target=module.cognito` apply can error while refreshing
+the destroyed ALB (target refreshes the full graph) — unnecessary anyway;
+a plain apply for the next demo is the correct command.
 
 ---
 
