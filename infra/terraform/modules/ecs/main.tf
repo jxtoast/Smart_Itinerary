@@ -73,6 +73,24 @@ resource "aws_iam_role" "task" {
   tags = { Name = "${var.project}-ecs-task" }
 }
 
+# The email-service sends via the SES v2 API, authenticated by this task
+# role (2026-10-07: this account rejects SigV2 SMTP auth for all keys, so
+# the SMTP interface is unusable on AWS). SendEmail is not resource-scoped.
+data "aws_iam_policy_document" "task_ses" {
+  statement {
+    sid       = "SendNotificationsEmail"
+    effect    = "Allow"
+    actions   = ["ses:SendEmail", "ses:SendRawEmail"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "task_ses" {
+  name   = "send-notifications-email"
+  role   = aws_iam_role.task.id
+  policy = data.aws_iam_policy_document.task_ses.json
+}
+
 data "aws_iam_policy_document" "task_s3" {
   statement {
     sid       = "PdfExports"

@@ -155,7 +155,11 @@ locals {
         { name = "SERVICE_NAME", value = "email-service" },
         { name = "PORT", value = "8085" },
         { name = "LOG_LEVEL", value = "info" },
-        # ── Mailpit → SES swap (same vars, SES's SMTP interface) ────────────
+        # ── Mailpit → SES swap ──────────────────────────────────────────────
+        # On AWS the mailer uses the SES v2 API with the task role for auth
+        # (MAILER_MODE=ses-api); the SMTP_* vars below stay dormant (compose
+        # parity — Mailpit uses them).
+        { name = "MAILER_MODE", value = "ses-api" },
         { name = "SMTP_HOST", value = "email-smtp.${var.aws_region}.amazonaws.com" },
         { name = "SMTP_PORT", value = "587" },
         # MAIL_FROM must be a SES-verified identity before any mail sends —
