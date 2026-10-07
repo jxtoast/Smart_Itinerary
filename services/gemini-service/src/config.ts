@@ -17,8 +17,11 @@ export const GEMINI_API_KEY_VAR = "GEMINI_API_KEY";
 /** Model id can be pinned via env in case Google deprecates the default. */
 export const GEMINI_MODEL_VAR = "GEMINI_MODEL";
 // gemini-2.0-flash (the monolith's model) was retired by Google — the API's
-// own 404 message recommends gemini-3.6-flash as the successor.
-export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
+// own 404 message recommended gemini-3.6-flash. That too was retired for
+// newer projects on 2026-10-07 (Google's 404: "no longer available to new
+// users", recommending gemini-3.8-flash) — and 3.8-flash verified live with
+// our key the same hour.
+export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 
 // --- Amadeus (flight search) ------------------------------------------------
 export const AMADEUS_API_KEY_VAR = "AMADEUS_API_KEY";
