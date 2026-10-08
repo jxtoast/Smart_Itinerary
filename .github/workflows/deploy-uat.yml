@@ -95,6 +95,11 @@ jobs:
             if ! aws sts get-caller-identity >/dev/null 2>&1; then
               missing+=("AWS credentials are set but invalid (sts get-caller-identity failed)")
             else
+              # TEMP diagnostics (T4.11 debug): which identity does the runner
+              # authenticate as, and what exists in the target region?
+              echo "::notice::sts identity: $(aws sts get-caller-identity --query Arn --output text 2>&1)"
+              echo "::notice::ecr repos in $AWS_REGION: $(aws ecr describe-repositories --query 'repositories[].repositoryName' --output text 2>&1 | head -c 300)"
+              echo "::notice::ecs clusters in $AWS_REGION: $(aws ecs list-clusters --output text 2>&1 | head -c 300)"
               if ! aws ecr describe-repositories --repository-names $SERVICES >/dev/null 2>&1; then
                 missing+=("the ECR repositories for $SERVICES do not all exist (Terraform not applied?)")
               fi
