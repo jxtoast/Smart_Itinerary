@@ -118,7 +118,15 @@ callback list must include it (it is interpolated automatically, but the
 Google-consent side needs no changes).
 
 Verified on the first teardown (2026-10-07): the targeted destroy preserved
-the whole Cognito module — after it, the hosted UI still answered 302 with
+the whole Cognito module. ⚠️ **But the second deploy cycle showed the OAuth
+app client does NOT survive every destroy — its id changed after the second
+destroy+apply. After every redeploy, refresh the local stack's client id:**
+
+```bash
+terraform -chdir=infra/terraform output cognito_web_client_id
+# → put that value in COGNITO_CLIENT_ID in the root .env AND apps/web/.env,
+#   then restart the five verifying services + the dev server
+``` — after it, the hosted UI still answered 302 with
 the original client id, and localhost sign-in needed zero changes. Note one
 artifact: a later `-target=module.cognito` apply can error while refreshing
 the destroyed ALB (target refreshes the full graph) — unnecessary anyway;
