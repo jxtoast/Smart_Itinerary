@@ -71,7 +71,8 @@ database fails. AI failures inside `/plan` never fail the whole request.
 | `PORT` | `8083` | HTTP port |
 | `DATABASE_URL` | — | Postgres of this service (`gemini-db`/`smart_gemini` in compose) |
 | `GEMINI_API_KEY` | — | Google Gemini key. **Server-side only.** Without it the service boots, but AI endpoints answer 503 |
-| `GEMINI_MODEL` | `gemini-3.6-flash` | Model id (override when Google deprecates the default) |
+| `GEMINI_MODEL` | `gemini-3.8-flash` | Model id — Google retires models per-project with zero notice (2.0 → 3.6 → 3.8, observed live); check ListModels for what your key can serve. On AWS this is pinned by the `gemini_model` Terraform variable |
+| `GEMINI_API_KEYS` | — | Optional comma-separated spare pool — on quota (429) or key rejection (400) the service retries the same prompt on the next key (T4.12) |
 | `AMADEUS_API_KEY` | — | Amadeus key. Without it flight endpoints answer 503 and `/plan` omits flights |
 | `AMADEUS_FLIGHTS_API_BASE_URL` | `https://test.api.amadeus.com/v2` | Amadeus host (test vs production) |
 | `AMQP_URL` | — | RabbitMQ (compose convention; no events published yet) |

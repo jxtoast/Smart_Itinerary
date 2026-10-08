@@ -7,8 +7,10 @@ needs is already in the queue, so nothing is persisted.
 
 This is the **"Email Service"** box in the architecture diagram, fed by the
 **"Message Broker (RabbitMQ)"**. Locally mail goes to the `mailpit` container
-(UI on http://localhost:8025); on AWS the same SMTP env vars point at Amazon
-SES's SMTP interface — `@smart/shared`'s mailer adapter does the swap.
+(UI on http://localhost:8025). On AWS the mailer uses `MAILER_MODE=ses-api`:
+the SES v2 API signed by the ECS task role — no SMTP credentials exist at
+all (this account rejects SigV2 SMTP auth for every key). Mailpit/SMTP
+stays the compose mode — same adapter, chosen by env.
 
 ## How a reminder works (TTL + dead-lettering)
 
@@ -88,8 +90,9 @@ HTTP exists only for liveness — all real work is consumer-driven.
 | `SERVICE_NAME` | `email-service` | Name in logs and `/healthz` |
 | `PORT` | `8085` | HTTP port (health endpoint only) |
 | `AMQP_URL` | — | RabbitMQ — the only dependency |
-| `SMTP_HOST` / `SMTP_PORT` | `localhost` / `1025` | Mailpit in compose; SES SMTP on AWS |
-| `SMTP_USER` / `SMTP_PASS` | — | Only when the relay requires auth |
+| `SMTP_HOST` / `SMTP_PORT` | `localhost` / `1025` | Mailpit in compose; dormant under `MAILER_MODE=ses-api` |
+| `SMTP_USER` / `SMTP_PASS` | — | Only when the relay requires auth; unused in SES-API mode |
+| `MAILER_MODE` | — | `ses-api` on AWS: SES v2 API + task role (no SMTP credentials) |
 | `MAIL_FROM` | `Smart Itinerary <no-reply@smart-itinerary.local>` | From-header on every email |
 | `MAILER_DRY_RUN` | `false` | `true` = log instead of sending (no SMTP needed) |
 | `OWNER_EMAIL_FALLBACK` | `owner@smart-itinerary.local` | See "Known contract gap" below |

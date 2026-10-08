@@ -18,8 +18,9 @@ and the full task-by-task story lives in [`docs/TASKS.md`](docs/TASKS.md).
    Cognito pool (real Cognito is wired and documented, just not required).
 2. **AWS-swappable.** Every local piece speaks the API of the AWS product it
    stands in for. Moving to AWS is an environment-variable change plus the
-   checked-in (never applied) Terraform under [`infra/`](infra/terraform/) —
-   same Docker images everywhere. The full mapping table is in
+   Terraform under [`infra/`](infra/terraform/) — **applied for demos,
+   destroyed after** (the demo rhythm, [`docs/TEARDOWN.md`](docs/TEARDOWN.md))
+   — same Docker images everywhere. The full mapping table is in
    [`docs/LOCAL-VS-AWS.md`](docs/LOCAL-VS-AWS.md).
 
 ## Architecture in one picture
@@ -73,7 +74,7 @@ packages/shared/              # zod DTOs, event schemas, AWS-swappable adapters
 packages/api-client/          # typed browser client (+ offline mock mode)
 db/init/                      # per-service DDL + demo seeds, applied on first boot
 docker-compose.yml            # the full local stack
-infra/terraform/              # AWS scaffold — checked in, NEVER applied
+infra/terraform/              # AWS deployment — applied for demos, destroyed after (docs/TEARDOWN.md)
 docs/                         # TASKS.md (the board) · WALKTHROUGH · ARCHITECTURE · GETTING_STARTED
 ```
 

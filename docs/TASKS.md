@@ -70,7 +70,7 @@ services/email-service/       # 8085
 packages/shared/              # types, zod DTOs, event schemas, adapters
 db/init/<service>.sql         # per-service DDL + seeds
 docker-compose.yml            # full local stack
-infra/terraform/              # AWS scaffold — checked in, NEVER applied
+infra/terraform/              # AWS deployment — demo rhythm (docs/TEARDOWN.md)
 docs/ARCHITECTURE.md          # diagram mirror + mapping + runbooks
 ```
 
@@ -323,7 +323,7 @@ Known cosmetic debt, tracked for T3.4: stale Wikimedia/seed image URLs render as
 > login callbacks; no domain exists). Full analysis + phase plan:
 > workspace plan file (mirrored in PR). Local compose remains the $0 dev mode —
 > the "same Docker images everywhere" guarantee is preserved (env-only swaps).
-> The $0/"never applied" wording sweep across the docs is T4.9.
+> The $0/"never applied" wording sweep across the docs was T4.9 (executed 2026-10-08).
 
 | ID | Task | Depends | Branch | Status | Notes |
 |---|---|---|---|---|---|

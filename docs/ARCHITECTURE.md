@@ -29,7 +29,7 @@ flowchart TB
         third["Third party"]
     end
 
-    subgraph aws["AWS (Terraform scaffold in infra/ — checked in, never applied)"]
+    subgraph aws["AWS (Terraform in infra/ — applied for demos, destroyed after)"]
         r53["Route 53 (DNS)"] --> waf["AWS WAF"] --> alb["Application Load Balancer"]
 
         subgraph gwlayer["API layer"]
@@ -196,7 +196,7 @@ env-var swap (§6).
 | Clients (Web / Mobile / Third Party) | `apps/web/` (Next.js); any HTTP client with a valid JWT | — (client side) | browser on `localhost:3000` (`npm run dev:web`) |
 | Route 53 → WAF → ALB | no code — a deployment concern | Route 53 + WAF + ALB | not needed locally — the browser reaches localhost directly |
 | API Gateway Instance 1 / Instance 2 | `services/gateway/` (Express, :8080); route table `src/upstreams.ts` | ECS service, `desired_count = 2`, auto-scaled (CPU 2–4) | `gateway` container :8080 |
-| Amazon Cognito (Auth) | `infra/terraform/modules/cognito/` (pool + Google federation + PKCE app client — Terraform, never applied); JWT verification `packages/shared/src/adapters/jwt.ts`; web flow `apps/web/app/auth/*` | Cognito user pool (free tier) | `TOKEN_VERIFY_MODE=dev` — the gateway mints HS256 dev tokens (`POST /api/auth/dev-token`) |
+| Amazon Cognito (Auth) | `infra/terraform/modules/cognito/` (pool + Google federation + PKCE app client — Terraform — live since 2026-10-07); JWT verification `packages/shared/src/adapters/jwt.ts`; web flow `apps/web/app/auth/*` | Cognito user pool (free tier) | `TOKEN_VERIFY_MODE=dev` — the gateway mints HS256 dev tokens (`POST /api/auth/dev-token`) |
 | Authentication Service (User Profile) | `services/auth-service/` (:8081) | ECS task, auto-scaled (CPU 1–3) | `auth-service` container :8081 |
 | Itinerary Service | `services/itinerary-service/` (:8082) | ECS task, auto-scaled (CPU 1–3) | `itinerary-service` container :8082 |
 | Gemini Service (Hotel Service) | `services/gemini-service/` (:8083) | ECS task, auto-scaled (CPU 1–3) | `gemini-service` container :8083 |
@@ -207,10 +207,11 @@ env-var swap (§6).
 | (Email delivery) | `packages/shared/src/adapters/mailer.ts` (SMTP) | Amazon SES (SMTP interface) | `mailpit` container :1025 (web inbox :8025) |
 | Amazon S3 (File Storage) | `packages/shared/src/adapters/storage.ts` (official `@aws-sdk/client-s3`) | S3 bucket | `s3` container (SeaweedFS) :9000, bucket `si-files` |
 | AWS Secrets Manager | server-side env only — root `.env` (gitignored) for compose | Secrets Manager | root `.env` |
-| CI/CD: CodeCommit → Actions → ECR → ECS → CloudWatch | `.github/workflows/ci.yml` (build, tests, SAST on every push); `.github/workflows/deploy-uat.yml` (ECR push + ECS rollout; image builds `services/*/Dockerfile`) | ECR + ECS + CloudWatch via `infra/` | GitHub is the source (CodeCommit closed to new customers). CI runs today; the deploy workflow is coded but **dormant** — its preflight verifies the AWS side exists (Terraform applied) and otherwise exits green with the exact gap named. The retired monolith pipelines (`production.yaml`/`preview.yaml`, Vercel) are gone with the monolith. |
+| CI/CD: CodeCommit → Actions → ECR → ECS → CloudWatch | `.github/workflows/ci.yml` — 6 jobs (typecheck, contract + gateway smokes, web build, **web-image build**, compose smoke, Cypress, **Terraform gate**; SAST removed 2026-10-05); `.github/workflows/deploy-uat.yml` (ECR push + ECS rollout; 7 images) | ECR + ECS + CloudWatch via `infra/` | GitHub is the source (CodeCommit closed to new customers). CI runs today and now exercises the infrastructure and the web image too (T4.10). The deploy workflow is coded but runs locally this cycle (repo-secrets ask pending — T4.11). The retired monolith pipelines (`production.yaml`/`preview.yaml`, Vercel) are gone with the monolith. |
 
 Everything in the "Repo path" column exists in this repository — including the
-Terraform scaffolds, which are **checked in but never applied** (see §6).
+Terraform, which is **applied for demos and destroyed after** (the demo
+rhythm, see §6 and `docs/TEARDOWN.md`).
 
 ---
 
@@ -303,8 +304,10 @@ path; mock mode exercises none of it.
 
 ## 6. The AWS migration path
 
-**Status: the Terraform in `infra/` is checked in and never applied — the whole
-system runs on localhost for $0** (hard constraint `docs/TASKS.md` §1.3). The
+**Status: two modes. Local compose = $0 dev environment; AWS = applied for
+demos and destroyed after (the demo rhythm — first live 2026-10-07,
+`docs/TEARDOWN.md`)** (supersedes the original $0-only constraint,
+`docs/TASKS.md` §1.3 — see the Phase 4 exception note there). The
 guarantee that makes this safe: **the same Docker images run in both worlds.**
 Every difference below is an environment variable; no service code changes.
 (The full "why each stand-in is the real thing" analysis lives in
@@ -315,10 +318,10 @@ Every difference below is an environment variable; no service code changes.
 | Database (×4) | `DATABASE_URL=postgres://smart:smart@auth-db:5432/smart_auth` | same var → the RDS endpoint (Terraform scaffold) |
 | Broker | `AMQP_URL=amqp://guest:guest@rabbitmq:5672` | same var → Amazon MQ (RabbitMQ engine); topology identical |
 | Object storage | `S3_ENDPOINT=http://s3:8333` + `S3_PUBLIC_ENDPOINT=http://localhost:9000` + `S3_FORCE_PATH_STYLE=true` | unset both endpoint vars (real S3 URLs are public), `S3_FORCE_PATH_STYLE=false`, bucket credentials via IAM |
-| Email | `SMTP_HOST=mailpit`, `SMTP_PORT=1025` | Amazon SES SMTP interface — same mailer adapter, SES host/port/credentials |
+| Email | `SMTP_HOST=mailpit`, `SMTP_PORT=1025` | `MAILER_MODE=ses-api` — the SES v2 API with the task role (this account rejects SigV2 SMTP auth); the SMTP vars stay for compose/Mailpit |
 | Auth | `TOKEN_VERIFY_MODE=dev` + `JWT_DEV_SECRET` | `TOKEN_VERIFY_MODE=cognito` + `COGNITO_ISSUER` + `COGNITO_CLIENT_ID` — every service (gateway + 4) flips together, per `infra/terraform/modules/cognito/RUNBOOK.md` |
 | AI keys | root `.env` (`GEMINI_API_KEY`, `AMADEUS_API_KEY`) — server-side env of gemini-service | Secrets Manager (Terraform scaffold) → same container env vars |
-| Deployment | `docker compose up --build -d` | ECS via the `infra/` Terraform (gateway `desired_count = 2`, one task per service, RDS ×4, S3, ALB) — checked in, **never applied**, $0 |
+| Deployment | `docker compose up --build -d` | ECS via the `infra/` Terraform (gateway `desired_count = 2`, one task per service, RDS ×4, S3, ALB) — applied for demos, destroyed after (`docs/TEARDOWN.md`) |
 | CI | GitHub Actions (`.github/workflows/ci.yml`) — typecheck ×9, contract smokes, web build, full compose smoke, Cypress (mock auth) | `deploy-uat.yml` completes the pipeline: images → ECR, ECS rollout (dormant until Terraform is applied) |
 
 Runbooks that turn this table into clicks:

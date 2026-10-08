@@ -93,7 +93,7 @@ packages/shared/     contracts + infrastructure adapters shared by all services
 packages/api-client/ the frontend's typed HTTP client (+ offline mock)
 db/init/             the four database schemas, applied on first container start
 docker-compose.yml   the whole local platform as code
-infra/terraform/     the AWS version of the platform, as code (never applied)
+infra/terraform/     the AWS version of the platform, as code (demo rhythm: apply for demos, destroy after)
 .github/workflows/   CI (every push) + dormant deploy-to-UAT workflow
 docs/                this document, ARCHITECTURE.md, TASKS.md, runbooks
 ```
@@ -184,17 +184,20 @@ so the JWT adapter can read `si_session`), `http/request-logger.ts` (one pino
 line per request), `http/require-auth.ts` (turns the shared `requireClaims`
 into an express dependency-injected middleware).
 
-### 3.6 `infra/terraform/` — the AWS platform, checked in, never applied
+### 3.6 `infra/terraform/` — the AWS platform, applied for demos, destroyed after
 
-Nine modules, one per diagram concern, all validate-only: `network` (VPC +
-public subnets, no NAT gateway — a documented cost saver), `ecr` (6 image
-repos), `ecs` (Fargate cluster, one task definition per service, gateway
-`desired_count = 2`, Cloud Map for compose-style hostnames, **auto-scaling
-on every service**), `rds` (4 × `db.t4g.micro`), `s3` (PDF bucket),
-`secrets` (per-service secret sets), `alb` (public entry), `cloudwatch`
-(log groups + alarms), `cognito` (user pool + Google IdP + PKCE app
-client, with a `RUNBOOK.md`). The root `README.md` has the apply runbook
-and the full cost table (§11).
+Eleven modules, one per diagram concern: `network` (VPC + public
+subnets, no NAT gateway — a documented cost saver), `ecr` (7 image
+repos), `ecs` (Fargate cluster, one task definition per service — now
+including the `web` app — gateway `desired_count = 2`, Cloud Map for
+compose-style hostnames, **auto-scaling on every service**), `mq`
+(Amazon MQ for RabbitMQ), `rds` (4 × `db.t4g.micro`), `s3` (PDF bucket),
+`secrets` (per-service secret sets), `alb` (public entry, path-routed),
+`cloudfront` (the HTTPS front door), `cloudwatch` (log groups + alarms),
+`cognito` (user pool + Google IdP + PKCE app client, with a
+`RUNBOOK.md`). This tree is **applied for demos and destroyed after** —
+the demo rhythm (see §11 and `docs/TEARDOWN.md`). The root `README.md`
+has the apply runbook and the full cost table (§11).
 
 **How to read a `.tf` file.** These are Terraform files (HCL — HashiCorp
 Configuration Language). Terraform is infrastructure-as-code: instead of
@@ -204,9 +207,10 @@ description. Two properties matter. First, it's **declarative** — you
 state the end state ("the gateway runs between 2 and 4 copies, aiming at
 60% CPU"), never the steps to get there. Second, a `.tf` file provisions
 nothing until someone runs `terraform apply` against a real AWS account —
-which is exactly what this repo never does (the $0 rule). Treat the whole
-tree as the precise, machine-checkable answer to "what would this system
-look like on AWS?".
+which this repo did for the first time on 2026-10-07 — the deployment
+ran, served the demo, and was destroyed the same night (the demo rhythm;
+see §11). Treat the whole tree as the precise, machine-checkable answer
+to "what does this system look like on AWS?".
 
 **How auto-scaling works** — `modules/ecs/autoscaling.tf`, the diagram's
 "auto-scaled" adjective as code. Under docker-compose every service runs
@@ -805,12 +809,14 @@ Full details: [`GETTING_STARTED.md`](GETTING_STARTED.md).
 
 ## 11. AWS later — the same system, applied
 
-`infra/terraform/` is the AWS rendering of everything in §1–§7, as code,
-validated but **never applied** (that's what keeps the project $0). Nine
-modules: `network` (VPC, public subnets, no NAT — a documented ~$33/mo
-saver), `ecr`, `ecs` (Fargate; gateway `desired_count = 2`, every service
-auto-scaled — see §3.6), `rds` (×4),
-`s3`, `secrets`, `alb`, `cloudwatch`, `cognito` (+ runbook).
+`infra/terraform/` is the AWS rendering of everything in §1–§7, as code —
+**applied for demos, destroyed after** (the demo rhythm; first live
+2026-10-07, see `docs/TEARDOWN.md`). Eleven modules: `network` (VPC,
+public subnets, no NAT — a documented ~$33/mo saver), `ecr`, `ecs`
+(Fargate; gateway `desired_count = 2`, every service auto-scaled — see
+§3.6), `mq` (Amazon MQ for RabbitMQ), `rds` (×4),
+`s3`, `secrets`, `alb`, `cloudfront` (HTTPS front door), `cloudwatch`,
+`cognito` (+ runbook).
 
 What applying changes: **nothing in the images or the code.** Services
 already read every dependency from env (`DATABASE_URL` → RDS,
