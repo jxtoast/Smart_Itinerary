@@ -122,6 +122,13 @@ terraform -chdir=infra/terraform apply
 # 5. verify: curl https://<web_public_url>/healthz → "ok", all upstreams up
 ```
 
+⚠️ **Do not sign in or click anything while the rollout is running.** During
+step 4 each 1-task service drops to zero for seconds-to-minutes mid-swap —
+logins and clicks in that window fail exactly like an outage (verified live
+2026-10-09: sign-in attempts during the rollout produced /me 500s and
+gemini 502s even with a perfectly valid token). The fleet is only clickable
+after every service reports stable.
+
 The CloudFront URL changes on each redeploy (new distribution domain) —
 grab it with `terraform output web_public_url`, and remember Cognito's
 callback list must include it (it is interpolated automatically, but the
