@@ -94,7 +94,17 @@ terraform destroy -auto-approve     # everything, pool included
 
 ---
 
-## 3. Redeploy for the next demo (≈40–60 minutes end-to-end)
+## 3. Redeploy for the next demo
+
+**One-command version (recommended):** run `deploy-demo.sh` (macOS/Linux) or
+`deploy-demo.bat` (Windows) from the repo root — they execute this entire
+section with step-numbered logs, failure gates that stop at the first error,
+PART 0 environment checks, the DDL loader helper (`scripts/ddl-stage.py`,
+cross-platform), the smoke checks, and an automatic refresh of the local
+`.env` files with the new Cognito client id. Partner scripts:
+`teardown-demo.sh` / `teardown-demo.bat`.
+
+The manual steps below remain the reference for what each stage does. (≈40–60 minutes end-to-end)
 
 The full runbook lives in `infra/terraform/README.md`; the short form:
 
