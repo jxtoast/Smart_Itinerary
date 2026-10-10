@@ -41,6 +41,18 @@ aws cloudtrail lookup-events --region "$REGION" --max-results 6 \
   --query 'Events[].{time:EventTime,action:EventName}' --output table 2>/dev/null
 
 echo ""
+echo "▶ Message broker (RabbitMQ — Amazon MQ):"
+aws mq describe-broker --broker-id smart-itinerary-rabbitmq --region "$REGION" \
+  --query 'Broker.{Broker:BrokerName,Engine:EngineType,EngineVersion:EngineVersion,Type:HostInstanceType,State:BrokerState}' \
+  --output table 2>/dev/null   || echo "  (mq:describe-broker — see CLI)"
+echo "  events flow: services → RabbitMQ exchange si.events → email-service"
+
+echo ""
+echo "▶ Login (Amazon Cognito):"
+aws cognito-idp describe-user-pool --user-pool-id ap-southeast-1_Mbl4n33p5 --region "$REGION" \
+  --query 'UserPool.{Pool:Name,MFA:MfaConfiguration}' --output table 2>/dev/null
+
+echo ""
 echo "▶ Databases (RDS):"
 aws rds describe-db-instances --region "$REGION" \
   --query 'DBInstances[].{DB:DBInstanceIdentifier,Engine:Engine,Status:DBInstanceStatus}' \
