@@ -42,9 +42,9 @@ aws cloudtrail lookup-events --region "$REGION" --max-results 6 \
 
 echo ""
 echo "▶ Message broker (RabbitMQ — Amazon MQ):"
-aws mq describe-broker --broker-id smart-itinerary-rabbitmq --region "$REGION" \
-  --query 'Broker.{Broker:BrokerName,Engine:EngineType,EngineVersion:EngineVersion,Type:HostInstanceType,State:BrokerState}' \
-  --output table 2>/dev/null   || echo "  (mq:describe-broker — see CLI)"
+aws mq list-brokers --region "$REGION" 
+  --query 'BrokerSummaries[].{Broker:BrokerName,Engine:EngineType,Type:HostInstanceType,State:BrokerState}' 
+  --output table
 echo "  events flow: services → RabbitMQ exchange si.events → email-service"
 
 echo ""
