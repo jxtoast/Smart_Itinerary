@@ -10,7 +10,7 @@ next demo. Written after the first live deployment (2026-10-07).
 
 | Destroyed (data included) | Survives (free or ≈pennies) |
 |---|---|
-| 8 Fargate tasks (all services, incl. web) | **The entire Cognito module** — pool, Google IdP, OAuth client, hosted domain: $0, all kept, so the *local* compose login keeps working untouched |
+| 8 Fargate tasks (all services, incl. web) | **The Cognito pool, Google IdP, hosted domain** — $0, all kept. ⚠️ The **OAuth app client is NOT kept**: it is destroyed with the stack (observed 2026-10-09), so *localhost* Cognito sign-in 401s until the next apply recreates it with fresh callbacks — use dev mode locally in between |
 | 4× RDS Postgres (**saved itineraries — gone**, by design; `skip_final_snapshot`) | Terraform state bucket (`smart-itinerary-tfstate-terry12321`) — pennies, holds the pool's state |
 | Amazon MQ broker (queued messages — gone) | SES verified identities + sandbox (nothing billed) |
 | ALB, CloudFront distribution (the URL goes dead) | IAM users/keys (`smart-itinerary-terraform`, `smart-itinerary-ses-sender`) — $0; delete in console if you want max tidiness |
