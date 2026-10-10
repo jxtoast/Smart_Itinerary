@@ -96,58 +96,17 @@ terraform destroy -auto-approve     # everything, pool included
 
 ## 3. Redeploy for the next demo
 
-**One-command version (recommended):** run `deploy-demo.sh` (macOS/Linux) or
-`deploy-demo.bat` (Windows) from the repo root — they execute this entire
-section with step-numbered logs, failure gates that stop at the first error,
-PART 0 environment checks, the DDL loader helper (`scripts/ddl-stage.py`,
-cross-platform), the smoke checks, and an automatic refresh of the local
-`.env` files with the new Cognito client id. Partner scripts:
-`teardown-demo.sh` / `teardown-demo.bat`.
+**Moved to its own guide: [`docs/REDEPLOY.md`](REDEPLOY.md)** — the full
+demo-day redeploy runbook (apply, DDL, images, rollout, verification) with
+all the live-tested precautions: the rollout click-window, the per-cycle
+CloudFront URL change, the Cognito client-id refresh, the linux/amd64 build
+rule, and the psql parameter strip.
 
-The manual steps below remain the reference for what each stage does. (≈40–60 minutes end-to-end)
-
-The full runbook lives in `infra/terraform/README.md`; the short form:
-
-```bash
-# 1. state is already remote — just apply (the Cognito pool is reused, not recreated):
-terraform -chdir=infra/terraform apply
-
-# 2. load the DDL into the 4 empty databases (README stage 2, throwaway psql tasks)
-
-# 3. build + push the 7 images (README stage 3 — MUST be linux/amd64)
-
-# 4. force-roll the services backends → gateway → web (README stage 4 —
-#    the circuit breaker does not self-heal on a fresh apply)
-
-# 5. verify: curl https://<web_public_url>/healthz → "ok", all upstreams up
-```
-
-⚠️ **Do not sign in or click anything while the rollout is running.** During
-step 4 each 1-task service drops to zero for seconds-to-minutes mid-swap —
-logins and clicks in that window fail exactly like an outage (verified live
-2026-10-09: sign-in attempts during the rollout produced /me 500s and
-gemini 502s even with a perfectly valid token). The fleet is only clickable
-after every service reports stable.
-
-The CloudFront URL changes on each redeploy (new distribution domain) —
-grab it with `terraform output web_public_url`, and remember Cognito's
-callback list must include it (it is interpolated automatically, but the
-Google-consent side needs no changes).
-
-Verified on the first teardown (2026-10-07): the targeted destroy preserved
-the whole Cognito module. ⚠️ **But the second deploy cycle showed the OAuth
-app client does NOT survive every destroy — its id changed after the second
-destroy+apply. After every redeploy, refresh the local stack's client id:**
-
-```bash
-terraform -chdir=infra/terraform output cognito_web_client_id
-# → put that value in COGNITO_CLIENT_ID in the root .env AND apps/web/.env,
-#   then restart the five verifying services + the dev server
-``` — after it, the hosted UI still answered 302 with
-the original client id, and localhost sign-in needed zero changes. Note one
-artifact: a later `-target=module.cognito` apply can error while refreshing
-the destroyed ALB (target refreshes the full graph) — unnecessary anyway;
-a plain apply for the next demo is the correct command.
+Or simply run **`deploy-demo.sh`** (macOS/Linux) / **`deploy-demo.bat`**
+(Windows) from the repo root — they execute the entire redeploy with
+step-numbered logs, PART 0 checks, failure gates, and the automatic local
+`.env` client-id refresh. Partner scripts: `teardown-demo.sh` /
+`teardown-demo.bat` (see §2 above).
 
 ---
 
