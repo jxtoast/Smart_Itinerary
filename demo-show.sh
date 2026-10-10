@@ -42,8 +42,8 @@ aws cloudtrail lookup-events --region "$REGION" --max-results 6 \
 
 echo ""
 echo "▶ Message broker (RabbitMQ — Amazon MQ):"
-aws mq list-brokers --region "$REGION" 
-  --query 'BrokerSummaries[].{Broker:BrokerName,Engine:EngineType,Type:HostInstanceType,State:BrokerState}' 
+aws mq list-brokers --region "$REGION" \
+  --query 'BrokerSummaries[].{Broker:BrokerName,Engine:EngineType,Type:HostInstanceType,State:BrokerState}' \
   --output table
 echo "  events flow: services → RabbitMQ exchange si.events → email-service"
 
