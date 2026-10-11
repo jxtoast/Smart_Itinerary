@@ -91,7 +91,9 @@ curl -s -o /dev/null -w "  homepage: HTTP %{http_code} (%{time_total}s)\n" \
 curl -s --max-time 15 "https://$DOMAIN/healthz" \
   | python3 -c "import json,sys; d=json.load(sys.stdin); print('  gateway:', d['status'], '|', ', '.join(f'{k}:{v[\"status\"]}' for k,v in d['upstreams'].items()))" \
   || die "healthz probe failed"
-curl -s -o /dev/null -w "  sign-in route: HTTP %{http_code}\n" \
+curl -s -o /dev/null -w "  dev-token (404 = cognito mode active): HTTP %{http_code}\n" \
+  --max-time 15 -X POST "https://$DOMAIN/api/auth/dev-token"
+curl -s -o /dev/null -w "  sign-in route (307 = Cognito hosted UI): HTTP %{http_code}\n" \
   --max-time 15 "https://$DOMAIN/auth/start"
 
 say "6/6 local .env refresh (localhost login)"

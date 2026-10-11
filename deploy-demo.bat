@@ -84,7 +84,9 @@ curl -s -o nul -w "    homepage: HTTP %%{http_code} (%%{time_total}s)" --max-tim
 echo.
 curl -s --max-time 15 "https://%URL%/healthz"
 echo.
-curl -s -o nul -w "    sign-in route: HTTP %%{http_code}" --max-time 15 "https://%URL%/auth/start"
+curl -s -o nul -w "    dev-token (404 = cognito mode active): HTTP %%{http_code}" --max-time 15 -X POST "https://%URL%/api/auth/dev-token"
+echo.
+curl -s -o nul -w "    sign-in route (307 = Cognito hosted UI): HTTP %%{http_code}" --max-time 15 "https://%URL%/auth/start"
 echo.
 
 echo.
