@@ -50,7 +50,7 @@ export default function Home() {
 
         <div className="flex gap-4 mb-4">
           <Link href="/plan-itinerary">
-            <button id='plan-itinerary' className="btn btn-primary border-none bg-btn-primary-base hover:bg-btn-primary-hover py-2 px-6 text-white">
+            <button id='plan-itinerary' className="btn btn-primary border-none bg-[#FF00FF] hover:bg-[#8B008B] py-2 px-6 text-white">
             <GrPlan></GrPlan>
               Plan a Trip
             </button>
