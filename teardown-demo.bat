@@ -36,5 +36,37 @@ aws rds describe-db-instances --region %AWS_REGION% --query "length(DBInstances)
 aws mq list-brokers --region %AWS_REGION% --query "length(BrokerSummaries)" --output text
 echo    (all should read 0)
 echo    Survived on purpose: Cognito module, state bucket, SES identities.
+
 echo.
-echo TEARDOWN_COMPLETE - idle cost about $1/month. Redeploy: deploy-demo.bat
+echo == cost guard - nothing may bill silently after the destroy
+REM a) Unattached Elastic IPs: not Terraform-managed, AWS can leave one behind
+REM    when the ALB's ENI dies. An idle EIP bills ~$3.65/mo - check EVERY time.
+set EIPCOUNT=0
+for /f %%a in ('aws ec2 describe-addresses --region %AWS_REGION% --query "length(Addresses[?AssociationId==`null`])" --output text') do set EIPCOUNT=%%a
+if "%EIPCOUNT%"=="0" echo    unattached Elastic IPs: none
+if "%EIPCOUNT%"=="0" goto eip-done
+echo    %EIPCOUNT% unattached Elastic IP^(s^) found - these bill ~$3.65/mo EACH:
+aws ec2 describe-addresses --region %AWS_REGION% --query "Addresses[?AssociationId==`null`].[AllocationId,PublicIp]" --output table
+set "CONFIRM="
+set /p CONFIRM=Release ALL of them now? [y/N]
+if /i not "%CONFIRM%"=="y" goto eip-done
+for /f %%a in ('aws ec2 describe-addresses --region %AWS_REGION% --query "Addresses[?AssociationId==`null`].[AllocationId]" --output text') do aws ec2 release-address --region %AWS_REGION% --allocation-id %%a
+echo    released
+:eip-done
+REM b) Orphaned MQ log groups: Amazon MQ creates its own CloudWatch log groups
+REM    (/aws/amazonmq/...) which Terraform does NOT manage. Pennies, but safe to
+REM    delete after the destroy - the brokers are gone, nothing recreates them.
+set LG=0
+for /f %%a in ('aws logs describe-log-groups --region %AWS_REGION% --query "length(logGroups[?starts_with(logGroupName, `/aws/amazonmq`)])" --output text') do set LG=%%a
+if "%LG%"=="0" echo    orphaned MQ log groups: none
+if "%LG%"=="0" goto lg-done
+set "CONFIRM="
+set /p CONFIRM=Delete %LG% orphaned MQ log group(s)? [y/N]
+if /i not "%CONFIRM%"=="y" goto lg-done
+for /f "delims=" %%g in ('aws logs describe-log-groups --region %AWS_REGION% --query "logGroups[?starts_with(logGroupName, `/aws/amazonmq`)].logGroupName" --output text') do aws logs delete-log-group --region %AWS_REGION% --log-group-name "%%g"
+echo    deleted
+:lg-done
+
+echo.
+echo TEARDOWN_COMPLETE - idle cost is pennies (the state bucket). Redeploy: deploy-demo.bat
+echo    End of the PROJECT entirely (account to true $0): final-shutdown.bat

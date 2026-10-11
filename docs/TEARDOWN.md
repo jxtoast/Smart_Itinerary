@@ -62,10 +62,21 @@ terraform destroy \
 ```bash
 aws ecs list-services --cluster smart-itinerary --query 'serviceArns'   # fails/empty: cluster gone
 aws s3 ls                                                               # only the tfstate bucket remains
+# THE SILENT-BILLING TRAP (verified 2026-10-11): AWS can leave an unattached
+# Elastic IP behind when the ALB's ENI is deleted. It is NOT Terraform-
+# managed, so the destroy will not remove it — and an idle EIP bills
+# ~$3.65/month. It must be empty; if a row appears, release it:
+aws ec2 describe-addresses --query 'Addresses[?AssociationId==`null`].[AllocationId,PublicIp]' --output table
+# aws ec2 release-address --allocation-id <allocationId-from-above>
 ```
 
-The Billing/Free-Tier page stops accumulating within a day. Remaining
-permanent lines: ECR/state storage ~$0.50, Cognito $0.
+(`teardown-demo.sh` / `teardown-demo.bat` run both checks for you and offer
+to release/delete — step 4/5 "cost guard".)
+
+The Billing/Cost-Explorer page keeps showing the month's *historical* spend
+for up to ~24 h after the destroy — that is a receipt, not a running meter.
+Remaining permanent lines: the state bucket (pennies) and, only if you
+declined the cost-guard prompts, an idle EIP / orphaned MQ log groups.
 
 ### 2.2 Full teardown variant (also remove the Cognito pool)
 
@@ -116,7 +127,47 @@ step-numbered logs, PART 0 checks, failure gates, and the automatic local
 |---|---|
 | Stack up 24/7 | ≈ $7.40/day (≈ $205–230/mo) — credits absorb it |
 | Demo rhythm (up ~1 day/week) | ≈ $8–10/month of credits |
-| Destroyed | ≈ $1/mo (ECR leftovers + state bucket) |
+| Destroyed (post cost-guard) | ≈ $0.05/mo — the state bucket only |
 
 The **$10 Budgets alarm** fires at roughly 1.5 days of continuous up-time —
 if it emails you, either a demo is still running or something is wrong.
+
+---
+
+## 5. Full shutdown (end of project — return the account to truly $0)
+
+The demo teardown keeps some $0/pennies survivors on purpose (Cognito pool,
+SES identities, IAM users, the state bucket). When the project is **done
+done** and you want nothing left to bill — ever — run:
+
+```bash
+bash final-shutdown.sh     # macOS/Linux
+final-shutdown.bat         # Windows
+```
+
+It **refuses to run** unless the stack is already destroyed, then walks
+through, with a confirmation prompt per step:
+
+| Step | Removes | Was costing |
+|---|---|---|
+| 1 | unattached Elastic IPs | **~$3.65/mo each — the one real leak** |
+| 2 | all CloudWatch log groups (orphaned MQ groups) | pennies |
+| 3 | leftover `smart-itinerary-*` task definitions (DDL-loader throwaways) | $0 (tidy) |
+| 4 | any leftover ECR repositories with images | pennies |
+| 5 | `smart-itinerary` SNS topics + the Cloud Map namespace | pennies/$0 |
+| 6 | SES verified identities | $0 |
+| 7 | the Cognito pool + hosted domain | $0 — ⚠️ localhost Google sign-in dies forever (dev-token mode still works) |
+| 8 | the Terraform state bucket (every version) | pennies — ⚠️ FINAL: nothing can be terraform-restored afterwards (nothing is left running; local compose is unaffected) |
+| 9 | **printed, not executed**: the IAM-user deletion commands | $0 |
+
+Step 9 is print-only for a reason: `smart-itinerary-terraform` owns the
+access key in `~/.aws/credentials` — deleting that user kills the very
+credentials the terminal is using. Run its commands **last**, from another
+identity (root / a different admin) or the console. The ultimate option is
+Billing → Account → **Close account**; after steps 1–8 there is nothing left
+to bill either way.
+
+**Why there is no cheaper "paused" state:** Fargate, RDS, MQ and the ALB all
+bill by *existence*, not usage — ECS desired-count 0 still leaves the broker,
+databases and load balancer billing. Destroyed-or-running is the only switch,
+and destroyed is what `teardown-demo.sh` + the cost guard give you.
