@@ -4,6 +4,7 @@
 set -e
 REGION="ap-southeast-1"
 CLUSTER="smart-itinerary"
+export AWS_PAGER=""   # print the whole screen in one pass — no less (END) pauses
 
 echo "──────────────────────────────────────────────────────────"
 echo " Smart Itinerary — live on AWS (region: $REGION)"
