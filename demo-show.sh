@@ -48,8 +48,8 @@ aws mq list-brokers --region "$REGION" \
   --output table
 echo "  events flow: services → RabbitMQ exchange si.events → email-service"
 CONSOLE_URL=$(aws mq describe-broker --broker-id smart-itinerary-rabbitmq --region "$REGION" \
-  --query "Instances[0].Endpoints[?contains(@,'https')]" --output text 2>/dev/null || true)
-[ -n "$CONSOLE_URL" ] && echo "  web console (443, allowlisted IPs only): $CONSOLE_URL"
+  --query "BrokerInstances[0].ConsoleURL" --output text 2>/dev/null || true)
+case "$CONSOLE_URL" in https*) echo "  web console (public mode — creds-only gate): $CONSOLE_URL";; *) echo "  web console: n/a (private broker — in-VPC access only)";; esac
 
 echo ""
 echo "▶ Login (Amazon Cognito):"

@@ -10,9 +10,15 @@
 # (publicly_accessible = false by default) — the vpc-lite pattern, same as
 # RDS. Fargate tasks reach it over the VPC fabric (no NAT needed for in-VPC
 # traffic); the internet cannot reach it: the security group only admits
-# AMQPS 5671 from the shared services security group. An explicit opt-in
-# (console_ingress_cidrs, /32-allowlisted) opens 443 for the RabbitMQ web
-# console during demo windows.
+# AMQPS 5671 from the shared services security group. The console opt-in
+# (publicly_accessible) exists for a demo-day browser console, but know what
+# it really buys (verified live 2026-10-15): a PUBLIC RabbitMQ broker does
+# NOT run in this VPC at all — AWS hosts it behind a managed ELB on an
+# .on.aws endpoint, refuses custom security groups at create, and leaves
+# credentials + TLS as the ONLY gates (443 AND 5671 are internet-open; no IP
+# allowlist is possible). The aws_default_security_group block below exists
+# only because CreateBroker would otherwise reject the plan shape — it gates
+# nothing in public mode. We run private (the default) for this reason.
 #
 # TLS: Amazon MQ speaks AMQPS only (5671). The broker adapter passes the URL
 # verbatim to amqplib, which switches to TLS on the amqps:// scheme — so this
@@ -21,7 +27,14 @@
 # Cost: mq.m7g.medium single-instance ≈ $65/month while up — the most expensive
 # single box after RDS. The demo-rhythm answer is terraform destroy (README).
 
+# Dedicated broker SG — private mode only. AWS does not accept custom
+# security groups on PUBLIC RabbitMQ brokers (CreateBroker rejects the pair:
+# "Broker with [publiclyAccessible] set to true does not support specifying
+# [securityGroups]"); a public broker lands on the VPC's default SG, managed
+# below with the same two rules.
 resource "aws_security_group" "broker" {
+  count = var.publicly_accessible ? 0 : 1
+
   name_prefix = "${var.project}-mq-"
   vpc_id      = var.vpc_id
   # (Descriptions are ASCII-only — the AWS API rejects other characters.)
@@ -35,10 +48,37 @@ resource "aws_security_group" "broker" {
     security_groups = [var.services_security_group_id]
   }
 
-  # Admin plane: the RabbitMQ web console + management API on 443. Off unless
-  # console_ingress_cidrs is non-empty; when on, keep it /32-allowlisted -
-  # this rule is the ONLY gate between the internet and the broker's
-  # management surface (data plane 5671 is unchanged below).
+  egress {
+    description = "Broker maintenance/delivery callbacks (AWS default posture)"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = { Name = "${var.project}-mq" }
+}
+
+# Public mode only: CreateBroker rejects the combination
+# (publiclyAccessible=true + securityGroups), so the resource needs SOME sg
+# answer; the broker itself is outside this VPC (AWS-managed ELB, .on.aws
+# endpoint) and these rules gate nothing real there — the true gates are the
+# broker credentials. Managed anyway to keep the default SG explicit, and
+# adopted only while publicly_accessible = true (nothing else in this VPC
+# uses the default SG).
+resource "aws_default_security_group" "public_broker" {
+  count = var.publicly_accessible ? 1 : 0
+
+  vpc_id = var.vpc_id
+
+  ingress {
+    description     = "AMQPS from the services (data plane - unchanged by console mode)"
+    from_port       = 5671
+    to_port         = 5671
+    protocol        = "tcp"
+    security_groups = [var.services_security_group_id]
+  }
+
   dynamic "ingress" {
     for_each = length(var.console_ingress_cidrs) > 0 ? [1] : []
     content {
@@ -58,7 +98,7 @@ resource "aws_security_group" "broker" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = { Name = "${var.project}-mq" }
+  tags = { Name = "${var.project}-mq-public-default-sg" }
 }
 
 resource "aws_mq_broker" "rabbitmq" {
@@ -76,8 +116,10 @@ resource "aws_mq_broker" "rabbitmq" {
   # topology is durable, so a broker replacement re-asserts and resumes —
   # HA (MULTI_AZ, ~2x cost) buys nothing a demo-rhythm destroy/apply cycle
   # doesn't already model.
-  subnet_ids      = [var.subnet_id]
-  security_groups = [aws_security_group.broker.id]
+  subnet_ids = [var.subnet_id]
+  # null (public mode) = omit the field entirely, so AWS attaches the default
+  # VPC SG instead of rejecting the create.
+  security_groups = var.publicly_accessible ? null : [aws_security_group.broker[0].id]
 
   # The app-level user the AMQP_URL authenticates as. console_access stays
   # off by default: the data plane never needs the web console; demo-day
