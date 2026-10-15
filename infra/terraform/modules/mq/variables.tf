@@ -47,3 +47,21 @@ variable "broker_password" {
   type        = string
   sensitive   = true
 }
+
+variable "publicly_accessible" {
+  description = "Public ENI for the broker. false (default) = in-VPC only, matching the 'only tasks can reach the broker' segmentation. true = internet-facing; safe only together with console_ingress_cidrs locked to admin /32s. Create-only in Amazon MQ: flipping it REPLACES the broker (~20-30 min)."
+  type        = bool
+  default     = false
+}
+
+variable "console_access" {
+  description = "Let the broker user log into the RabbitMQ web console. This only unlocks the account for UI login - network reachability is decided by the security group (console_ingress_cidrs)."
+  type        = bool
+  default     = false
+}
+
+variable "console_ingress_cidrs" {
+  description = "CIDRs allowed to reach the console / management API on 443. Keep /32s. Empty (default) = no 443 ingress at all, even if publicly_accessible = true."
+  type        = list(string)
+  default     = []
+}

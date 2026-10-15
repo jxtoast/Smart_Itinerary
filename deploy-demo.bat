@@ -36,7 +36,12 @@ cd /d "%ROOT%infra\terraform"
 terraform plan -out=tfplan.bin -no-color > "%TEMP%\plan-demo.log" 2>&1
 if errorlevel 1 (echo !! PLAN FAILED & type "%TEMP%\plan-demo.log" & exit /b 1)
 terraform show -no-color tfplan.bin | findstr /C:"aws_mq_broker" | findstr /C:"will be replaced" >nul 2>&1
-if not errorlevel 1 (echo !! MQ broker replacement detected in plan - aborting for review & exit /b 1)
+if not errorlevel 1 (
+  if /I not "%ALLOW_MQ_REPLACE%"=="1" (
+    echo !! MQ broker replacement detected in plan - aborting for review ^(intentional? set ALLOW_MQ_REPLACE=1^)
+    exit /b 1
+  )
+)
 terraform apply -auto-approve -no-color tfplan.bin > "%TEMP%\apply-demo.log" 2>&1
 if errorlevel 1 (echo !! APPLY FAILED & type "%TEMP%\apply-demo.log" & exit /b 1)
 findstr /C:"Apply complete" "%TEMP%\apply-demo.log"

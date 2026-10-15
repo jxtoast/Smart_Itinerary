@@ -150,6 +150,24 @@ variable "mq_broker_password" {
   sensitive   = true
 }
 
+variable "mq_publicly_accessible" {
+  description = "Internet-facing broker ENI (demo-day RabbitMQ web console). Create-only in Amazon MQ: the first apply after enabling REPLACES the broker (~20-30 min)."
+  type        = bool
+  default     = false
+}
+
+variable "mq_console_access" {
+  description = "Broker user may log into the RabbitMQ web console (network still gated by mq_console_ingress_cidrs)."
+  type        = bool
+  default     = false
+}
+
+variable "mq_console_ingress_cidrs" {
+  description = "Admin IPs (/32) allowed to reach the console on 443. Find yours: curl -s https://checkip.amazonaws.com"
+  type        = list(string)
+  default     = []
+}
+
 variable "amqp_url" {
   description = "Manually created broker endpoint (amqps://…:5671 with credentials) — ONLY used when enable_mq = false. Empty = the email workers idle (compose-parity no-broker behaviour)."
   type        = string

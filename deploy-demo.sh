@@ -38,9 +38,10 @@ say "1/6 terraform apply (MQ broker recreate is the ~20–30 min tail — do not
 cd "$TF"
 terraform plan -out=tfplan -no-color > /tmp/plan-demo.log 2>&1 \
   || { echo "PLAN FAILED:"; tail -15 /tmp/plan-demo.log; exit 1; }
-if terraform show -no-color tfplan 2>/dev/null | grep -qE "aws_mq_broker.*will be replaced"
+if terraform show -no-color tfplan 2>/dev/null | grep -qE "aws_mq_broker.*will be replaced" \
+   && [ "${ALLOW_MQ_REPLACE:-0}" != "1" ]
 then
-  die "MQ broker replacement detected in the plan — aborting for review"
+  die "MQ broker replacement detected in the plan — aborting for review (intentional? re-run with ALLOW_MQ_REPLACE=1)"
 fi
 terraform apply -auto-approve -no-color tfplan > /tmp/apply-demo.log 2>&1 \
   || { echo "APPLY FAILED:"; tail -15 /tmp/apply-demo.log; exit 1; }

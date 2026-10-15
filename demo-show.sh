@@ -47,6 +47,9 @@ aws mq list-brokers --region "$REGION" \
   --query 'BrokerSummaries[].{Broker:BrokerName,Engine:EngineType,Type:HostInstanceType,State:BrokerState}' \
   --output table
 echo "  events flow: services → RabbitMQ exchange si.events → email-service"
+CONSOLE_URL=$(aws mq describe-broker --broker-id smart-itinerary-rabbitmq --region "$REGION" \
+  --query "Instances[0].Endpoints[?contains(@,'https')]" --output text 2>/dev/null || true)
+[ -n "$CONSOLE_URL" ] && echo "  web console (443, allowlisted IPs only): $CONSOLE_URL"
 
 echo ""
 echo "▶ Login (Amazon Cognito):"

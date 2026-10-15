@@ -110,6 +110,9 @@ module "mq" {
   services_security_group_id = module.network.services_security_group_id
   broker_username            = var.mq_broker_username
   broker_password            = var.mq_broker_password
+  publicly_accessible        = var.mq_publicly_accessible
+  console_access             = var.mq_console_access
+  console_ingress_cidrs      = var.mq_console_ingress_cidrs
 }
 
 # Diagram: "RDS ×4" (database-per-service).
