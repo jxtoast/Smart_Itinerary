@@ -167,28 +167,14 @@ curl -s -o /dev/null -w "sign-in: HTTP %{http_code}\n" \
 # expect: 307 (redirect to the Cognito hosted UI)
 ```
 
-## RabbitMQ web console (optional)
+## RabbitMQ web console — disabled by decision (2026-10-15)
 
-After the first apply with `mq_publicly_accessible` / `mq_console_access` on
-in `terraform.tfvars` (one-time — see the warning there: it **replaces** the
-broker, so run `ALLOW_MQ_REPLACE=1 bash deploy-demo.sh` for that one cycle):
-
-```bash
-aws mq describe-broker --broker-id smart-itinerary-rabbitmq \
-  --region ap-southeast-1 \
-  --query "Instances[0].Endpoints[?contains(@,'https')]" --output text
-# → open the URL in any browser; login = broker_username / broker_password
-#   from terraform.tfvars — good spot to show the email.reminder.due queue
-#   and the TTL→DLX flow live during the demo
-```
-
-- Two gates protect it: the broker SG admits **443 only from
-  `mq_console_ingress_cidrs`** (keep /32s) and the console login itself. If
-  your home IP rotates: edit the /32 in tfvars and re-apply — SG-only,
-  in-place, lands in seconds. Nobody outside the list can even load the
-  login page.
-- Slide caveat: "only tasks can reach the broker" now needs its admin-plane
-  footnote — the data plane is unchanged (AMQPS 5671, services SG only).
+Public mode (`mq_publicly_accessible = true`) puts the broker OUTSIDE our
+VPC on an AWS-managed `.on.aws` endpoint: **credentials + TLS are the only
+gates** — no IP allowlist is possible, and 5671 is internet-open. We run the
+private broker instead (SG-gated, matching the segmentation slides). The
+machinery stays in `modules/mq` for a deliberate demo-day session; the
+tfvars block documents what enabling really means.
 
 ## Step 6 — Refresh the local `.env` with the new Cognito client id
 
