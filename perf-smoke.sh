@@ -30,7 +30,9 @@ MODE="${1:-bench}"
 CONCURRENCY="${CONCURRENCY:-80}"   # verified: c=25/c=40 hover AT the 60% CPU target
                                     # (~44-61% oscillating — no scale); c=80 forces both
                                     # tasks past target and scales deterministically
-LOAD_N="${LOAD_N:-65000}"   # ≈50k empirically triggers scale-out; this is +30%
+LOAD_N="${LOAD_N:-200000}"  # MUST outlast the alarm: breach needs ~3 min + 1-2 min
+                            # CloudWatch evaluation lag → ~5-7 min of fire. 65k drained
+                            # at ~4.5 min and the alarm never latched. 200k ≈ 14 min.
 LOG=/tmp/si-load.log
 BASE_URL=""                 # set by resolve_domain
 APPROX_RPS=220              # measured at c=80 — used for the live count estimate
