@@ -12,7 +12,7 @@ builds are the long poles). Cost while up: **≈$0.30/hr**, drawn from credits.
 ## ⚠️ Read first — the three precautions that bite
 
 1. **Do not sign in or click anything while the rollout is running.** During
-   step 5 each 1-task service drops to zero for seconds-to-minutes mid-swap —
+   step 4 each 1-task service drops to zero for seconds-to-minutes mid-swap —
    logins and clicks in that window fail exactly like an outage (verified
    live 2026-10-09: sign-in attempts during the rollout produced `/me` 500s
    and gemini 502s *even with a perfectly valid token*). The fleet is only
@@ -165,6 +165,20 @@ curl -s --max-time 15 "https://$DOMAIN/healthz" | python3 -m json.tool
 curl -s -o /dev/null -w "sign-in: HTTP %{http_code}\n" \
   --max-time 15 "https://$DOMAIN/auth/start"
 # expect: 307 (redirect to the Cognito hosted UI)
+```
+
+## Step 6 — Refresh the local `.env` with the new Cognito client id
+
+The apply mints a **new OAuth app client** every cycle (the old one is
+destroyed with the stack), so localhost sign-in breaks until the local
+`.env` files carry the new id:
+
+```bash
+terraform -chdir=infra/terraform output cognito_web_client_id
+# → put that value in COGNITO_CLIENT_ID in the root .env AND apps/web/.env,
+#   then restart the local containers (docker compose up -d --force-recreate)
+#   and the dev server. The live stack needs nothing — its services received
+#   the id from Terraform during step 1's rollout.
 ```
 
 **Then the demo path**: sign in with Google → generate a **2-day trip**
