@@ -7,7 +7,9 @@
 #   bash perf-smoke.sh            # bench: RPS + latency percentiles for / and /healthz
 #   bash perf-smoke.sh demo       # ONE COMMAND: load → live-poll until scale-out →
 #                                 #   activities + CPU + bench → stops the load. (~10 min)
-#   CONCURRENCY=40 bash perf-smoke.sh load    # sustained background load (drives gateway scale-out)
+#   bash perf-smoke.sh load       # sustained background load only (drives gateway scale-out)
+#   bash perf-smoke.sh policy     # the scaling rule as AWS holds it (60% CPU target, cooldowns)
+#   bash perf-smoke.sh watch      # live desired/running every 5s until Ctrl-C
 #   bash perf-smoke.sh status     # gateway count + scaling activities + CPU, last 15 min
 #   bash perf-smoke.sh stop       # kill the background load
 #
@@ -21,6 +23,7 @@
 # Note: ab reports healthz 200s as "Failed (Length)" because the body varies
 # with live upstream status — bench explains this rather than hiding it.
 set -u
+export AWS_PAGER=""   # tables print straight to the tty — no less (END) pauses
 REGION="ap-southeast-1"
 CLUSTER="smart-itinerary"
 MODE="${1:-bench}"
@@ -120,6 +123,23 @@ case "$MODE" in
     echo "── done. CPU table for slides: bash perf-smoke.sh status"
     ;;
 
+  policy)
+    banner "gateway scaling policy — the rule AWS enforces (source: infra/terraform/modules/ecs/autoscaling.tf)"
+    aws application-autoscaling describe-scaling-policies --service-namespace ecs --region "$REGION" \
+      --query 'ScalingPolicies[?ResourceId==`service/smart-itinerary/gateway`].{Target:TargetTrackingScalingPolicyConfiguration.TargetValue,ScaleOutCooldown_s:TargetTrackingScalingPolicyConfiguration.ScaleOutCooldown,ScaleInCooldown_s:TargetTrackingScalingPolicyConfiguration.ScaleInCooldown}' \
+      --output table
+    ;;
+
+  watch)
+    banner "gateway live count — Ctrl-C to stop (auto-scale target 60% CPU, min 2 / max 4)"
+    while :; do
+      D=$(aws ecs describe-services --cluster "$CLUSTER" --services gateway --region "$REGION" \
+        --query 'services[0].[desiredCount,runningCount]' --output text 2>/dev/null)
+      echo "  $(date +%H:%M:%S)  desired/running: ${D:-lookup failed}"
+      sleep 5
+    done
+    ;;
+
   status)
     banner "gateway desired/running (auto-scale target 60% CPU, min 2 / max 4)"
     aws ecs describe-services --cluster "$CLUSTER" --services gateway --region "$REGION" \
@@ -142,5 +162,5 @@ case "$MODE" in
     ;;
 
   *)
-    echo "usage: bash perf-smoke.sh [bench|demo|load|status|stop]"; exit 1 ;;
+    echo "usage: bash perf-smoke.sh [bench|demo|load|policy|watch|status|stop]"; exit 1 ;;
 esac
