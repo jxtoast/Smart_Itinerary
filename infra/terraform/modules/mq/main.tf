@@ -48,6 +48,17 @@ resource "aws_security_group" "broker" {
     security_groups = [var.services_security_group_id]
   }
 
+  # RabbitMQ management API — read-only in-VPC tooling (the
+  # scripts/broker-queues.py viewer task runs in the services ring). Never
+  # internet-reachable: the private broker's only door is the VPC endpoint.
+  ingress {
+    description     = "Management API 443 from the services ring (queue-viewer task)"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [var.services_security_group_id]
+  }
+
   egress {
     description = "Broker maintenance/delivery callbacks (AWS default posture)"
     from_port   = 0

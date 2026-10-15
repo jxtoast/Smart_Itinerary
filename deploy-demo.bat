@@ -62,6 +62,9 @@ for %%s in (gateway auth-service itinerary-service gemini-service tools-service 
 docker build --platform linux/amd64 -f apps\web\Dockerfile -t %REGISTRY%\web:latest . || exit /b 1
 docker push %REGISTRY%\web:latest || exit /b 1
 echo    pushed web
+docker build --platform linux/amd64 -f .context\mq-viewer\Dockerfile -t %REGISTRY%\tools-service:mq-viewer . || exit /b 1
+docker push %REGISTRY%\tools-service:mq-viewer || exit /b 1
+echo    pushed mq-viewer
 
 echo.
 echo == 3/6 DDL load x4 (cross-platform helper)

@@ -49,7 +49,11 @@ aws mq list-brokers --region "$REGION" \
 echo "  events flow: services → RabbitMQ exchange si.events → email-service"
 CONSOLE_URL=$(aws mq describe-broker --broker-id smart-itinerary-rabbitmq --region "$REGION" \
   --query "BrokerInstances[0].ConsoleURL" --output text 2>/dev/null || true)
-case "$CONSOLE_URL" in https*) echo "  web console (public mode — creds-only gate): $CONSOLE_URL";; *) echo "  web console: n/a (private broker — in-VPC access only)";; esac
+case "$CONSOLE_URL" in
+  https*) echo "  web console URL: $CONSOLE_URL";
+          echo "    (private broker — resolves only inside the VPC; live queue table: scripts/broker-queues.sh)";;
+  *) echo "  web console: n/a";;
+esac
 
 echo ""
 echo "▶ Login (Amazon Cognito):"

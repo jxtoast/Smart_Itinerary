@@ -6,7 +6,7 @@
 # Does, in order (stopping loudly at the first failure):
 #   0/6 PART 0 checks            — Docker, AWS identity, region, credentials
 #   1/6 terraform apply          — recreates the stack (~20–30 min; MQ is the tail)
-#   2/6 build + push 8 images    — 7 services + the DDL loader (linux/amd64!)
+#   2/6 build + push 9 images    — 7 services + DDL loader + queue-viewer
 #   3/6 DDL load ×4              — schemas into the 4 fresh RDS databases
 #   4/6 force-rollout ×7         — backends → gateway → web
 #   5/6 smoke + URL              — homepage, gateway health, sign-in route
@@ -61,8 +61,11 @@ for svc in gateway auth-service itinerary-service gemini-service tools-service e
 done
 docker build --platform linux/amd64 -f "$ROOT/apps/web/Dockerfile" \
   -t "$REGISTRY/web:latest" "$ROOT" || die "web build failed"
-for img in tools-service:ddl-loader gateway auth-service itinerary-service \
-           gemini-service tools-service email-service web; do
+docker build --platform linux/amd64 -f "$ROOT/.context/mq-viewer/Dockerfile" \
+  -t "$REGISTRY/tools-service:mq-viewer" "$ROOT" || die "mq-viewer build failed"
+for img in tools-service:ddl-loader tools-service:mq-viewer gateway \
+           auth-service itinerary-service gemini-service tools-service \
+           email-service web; do
   case "$img" in *:*) TAG="$img";; *) TAG="$img:latest";; esac
   docker push "$REGISTRY/$TAG" >/dev/null || die "push failed: $TAG"
   echo "  pushed $TAG"

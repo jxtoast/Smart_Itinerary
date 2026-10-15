@@ -74,7 +74,7 @@ domain** — sign-in works on the first try after step 5.
 
 ---
 
-## Step 2 — Build and push the 8 images (linux/amd64 — always)
+## Step 2 — Build and push the 9 images (linux/amd64 — always)
 
 ```bash
 REGISTRY=134580877391.dkr.ecr.ap-southeast-1.amazonaws.com
@@ -95,8 +95,12 @@ done
 docker build --platform linux/amd64 -f apps/web/Dockerfile \
   -t $REGISTRY/web:latest $ROOT
 
-for img in tools-service:ddl-loader gateway auth-service itinerary-service \
-           gemini-service tools-service email-service web; do
+docker build --platform linux/amd64 -f .context/mq-viewer/Dockerfile \
+  -t $REGISTRY/tools-service:mq-viewer $ROOT
+
+for img in tools-service:ddl-loader tools-service:mq-viewer gateway \
+           auth-service itinerary-service gemini-service tools-service \
+           email-service web; do
   case $img in *:*) TAG=$img;; *) TAG=$img:latest;; esac
   docker push $REGISTRY/$TAG
 done
